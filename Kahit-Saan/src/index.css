@@ -1,0 +1,144 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-brand-black: #1A1A1A;
+  --color-brand-gold: #D4AF37;
+  --color-brand-gray: #A1A1A1;
+  --color-brand-white: #F7F7F7;
+}
+
+body {
+  font-family: 'Open Sans', sans-serif;
+  color: var(--color-brand-black);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Montserrat', sans-serif;
+}
+
+@layer base {
+  body {
+    @apply font-opensans text-brand-black bg-white m-0 p-0 min-h-screen;
+    @apply antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-montserrat font-bold;
+  }
+
+  h1 {
+    @apply text-4xl md:text-5xl lg:text-6xl;
+  }
+
+  h2 {
+    @apply text-3xl md:text-4xl;
+  }
+
+  h3 {
+    @apply text-2xl;
+  }
+
+  h4 {
+    @apply text-xl;
+  }
+
+  p {
+    @apply mb-4;
+  }
+
+  a {
+    @apply transition-colors;
+  }
+
+  button, 
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-2 rounded-xl font-opensans font-semibold transition-colors;
+  }
+}
+
+@layer components {
+  /* Primary Button */
+  .btn-primary {
+    @apply bg-brand-black text-brand-gold hover:bg-gray-800;
+  }
+
+  /* Secondary Button */
+  .btn-secondary {
+    @apply bg-white border border-gray-300 text-gray-700 hover:bg-gray-50;
+  }
+
+  /* Danger Button */
+  .btn-danger {
+    @apply bg-brand-red text-white hover:bg-red-700;
+  }
+
+  /* Success Button */
+  .btn-success {
+    @apply bg-brand-green text-white hover:bg-green-700;
+  }
+
+  /* Card styles */
+  .card {
+    @apply bg-white rounded-2xl shadow-lg overflow-hidden transition-transform;
+  }
+
+  /* Form elements */
+  .form-input,
+  .form-textarea,
+  .form-select {
+    @apply w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-gold;
+  }
+
+  /* Form labels */
+  .form-label {
+    @apply block text-sm font-opensans font-semibold text-gray-700 mb-1;
+  }
+
+  /* Menu item card */
+  .menu-item-card {
+    @apply bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all hover:-translate-y-1;
+  }
+
+  /* Text accent (for restaurant name) */
+  .text-accent {
+    @apply font-kaushan text-brand-gold;
+  }
+}
+
+/* Custom animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.5s ease-out;
+}
+
+/* Fix for layout issues */
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  width: 100%;
+  max-width: 100%; /* This can be problematic, usually 100vw or just width: 100% */
+  padding: 0;
+  margin: 0;
+}
+
+/* Fix body to work nicely with the admin sidebar layout */
+body {
+  display: block; /* Override the flex style */
+  place-items: initial; /* Remove default centering */
+}

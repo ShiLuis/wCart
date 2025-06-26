@@ -1,0 +1,223 @@
+/* LandingPage.css */
+
+
+
+/* --- General Section Styling --- */
+.section {
+  padding-top: 4rem;
+  padding-bottom: 4rem;
+  color: var(--color-brand-white); /* Default text color for these sections */
+}
+@media (min-width: 900px) { /* approx MUI md breakpoint */
+  .section {
+    padding-top: 5rem;
+    padding-bottom: 5rem;
+  }
+}
+
+/* .container styles from your earlier CSS, assuming it handles max-width and padding */
+/* If not, add:
+.container {
+  max-width: 1140px; 
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1.5rem; 
+  padding-right: 1.5rem; 
+}
+*/
+
+.section-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+@media (min-width: 900px) {
+  .section-header {
+    margin-bottom: 4rem;
+  }
+}
+
+.section-icon {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 1rem;
+  color: var(--color-brand-gold);
+}
+
+/* --- Typography for custom sections --- */
+.section-header h2, /* General h2 in custom section headers */
+.about-subtitle,
+.social-title {
+  font-family: var(--font-montserrat, 'Montserrat', sans-serif);
+  font-weight: bold;
+  color: var(--color-brand-white);
+  /* Use Tailwind or specific classes for font sizes if not relying on browser defaults for h2 */
+  font-size: 1.75rem; /* 28px - matching MUI h2 if desired */
+  margin-top: 0.5rem;
+}
+
+.section-header .section-subtitle,
+.social-description {
+  font-family: var(--font-open-sans, 'Open Sans', sans-serif);
+  color: var(--color-brand-gray);
+  margin-top: 1rem;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.7;
+  font-size: 1rem; /* 16px */
+}
+
+/* --- About Section --- */
+.about-section .about-title {
+  color: var(--color-brand-gold);
+  font-family: var(--font-open-sans, 'Open Sans', sans-serif);
+  font-weight: 600;
+  font-size: 0.9rem;
+  display: block;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+
+.about-content-wrapper { /* To center the content paper */
+  max-width: 768px; /* Similar to MUI Container maxWidth="md" */
+  margin: 0 auto;
+}
+
+.about-content-paper {
+  padding: 2rem; /* 32px */
+  border-radius: 12px;
+  background-color: rgba(247, 247, 247, 0.03); /* alpha(CUSTOM_WHITE, 0.03) */
+  border: 1px solid rgba(212, 175, 55, 0.2);  /* alpha(GOLD, 0.2) */
+}
+.about-content-paper p {
+  font-family: var(--font-open-sans, 'Open Sans', sans-serif);
+  color: var(--color-brand-white);
+  text-align: justify;
+  margin-bottom: 1.5rem;
+  font-size: 1.05rem;
+  line-height: 1.8;
+}
+.about-content-paper .about-mission-title { /* Specific class for mission title */
+  font-family: var(--font-montserrat, 'Montserrat', sans-serif);
+  font-weight: bold;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  text-align: center;
+  color: var(--color-brand-gold);
+  font-size: 1.75rem; /* Example, like an h3 or h4 */
+}
+@media (max-width: 899px) {
+  .about-content-paper { padding: 1.5rem; }
+  .about-content-paper p { font-size: 0.95rem; margin-bottom: 1rem;}
+  .about-content-paper .about-mission-title { margin-top: 1.5rem; font-size: 1.5rem; }
+}
+
+/* --- Location Section --- */
+.location-container {
+  display: grid;
+  grid-template-columns: 1fr; /* Mobile first: items stack vertically */
+  gap: 2rem;
+  margin-top: 3rem;
+
+  /* Your max-width for this specific container */
+  max-width: 1200px; /* Or whatever value you need to match your layout */
+  
+  /* Add these lines to center this container if its max-width is less than available space */
+  margin-left: auto;
+  margin-right: auto;
+
+  /* justify-items: center; /* This centers content *within* each grid cell. 
+                             It's fine to keep if you want that effect for your grid items. */
+}
+
+/* For side-by-side layout on wider screens */
+@media (min-width: 768px) { /* Adjust breakpoint if needed */
+  .location-container {
+    /* Define your desired column layout, e.g., contact info and map */
+    /* Example: Contact info takes 1 part, map takes 2 parts (approx. 33% / 67%) */
+    grid-template-columns: 1fr 2fr; 
+    align-items: start; /* Align items to the top of their grid cell */
+  }
+}
+
+/* Panel styling for contact info */
+.location-info-panel {
+  padding: 1.5rem;
+  border-radius: 12px;
+  background-color: rgba(247, 247, 247, 0.03); /* Assuming --color-brand-white #F7F7F7 */
+  border: 1px solid rgba(212, 175, 55, 0.2);  /* Assuming --color-brand-gold #D4AF37 */
+  /* height: 100%; /* Optional, if you want it to stretch with align-items: stretch on grid */
+}
+
+/* Styles for map container (ensure aspect ratio and other styles are correct) */
+.map-container {
+  width: 100%; /* Takes full width of its grid cell */
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px; 
+  border: 1px solid rgba(212, 175, 55, 0.2);
+  background-color: rgba(247, 247, 247, 0.03); /* Placeholder bg */
+  
+  height: 0;
+  padding-bottom: 56.25%; /* 16:9 aspect ratio. Adjust as needed (e.g., 75% for 4:3) */
+}
+
+.map-iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* --- Contact/Social Section --- */
+.social-section { text-align: center; }
+
+.social-links {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 2rem; /* Added margin from social description */
+}
+@media (min-width: 600px) { .social-links { gap: 1.5rem; } }
+
+.social-link { /* For the <a> tags */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  color: var(--color-brand-gray);
+  border: 1px solid var(--color-brand-gray); /* Or your divider color */
+  border-radius: 50%;
+  transition: color 0.3s, transform 0.3s, border-color 0.3s, box-shadow 0.3s;
+}
+.social-link:hover {
+  color: var(--color-brand-gold);
+  border-color: var(--color-brand-gold);
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3); /* alpha(GOLD, 0.3) */
+}
+.social-link svg { /* Sizes are set in JSX, this is for color if needed */
+  /* color: inherit; (inherits from .social-link) */
+}
+@media (min-width: 900px) { .social-link { padding: 12px; } }
+
+
+/* --- Footer Section --- */
+.footer {
+  background-color: var(--color-brand-black);
+  color: var(--color-brand-gray);
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+  text-align: center;
+}
+@media (min-width: 900px) {
+  .footer { padding-top: 2.5rem; padding-bottom: 2.5rem; }
+}
+.footer-copyright, .footer-location {
+  font-family: var(--font-open-sans, 'Open Sans', sans-serif);
+}
+.footer-copyright { margin-bottom: 0.25rem; }
+.footer-location { margin-top: 0.25rem; font-size: 0.875rem; }
