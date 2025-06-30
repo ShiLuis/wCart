@@ -144,31 +144,6 @@ const LandingPage = () => {
         </Box>
     );
 
-    const AdminLoginMuiButton = ({ isMobileView = false, isFooterLink = false }) => (
-        <Button
-            variant={isFooterLink ? "text" : "contained"}
-            color="primary"
-            component={RouterLink}
-            to="/admin/auth/login"
-            sx={{
-                fontFamily: '"Open Sans", sans-serif',
-                fontWeight: isFooterLink ? 400 : 600,
-                fontSize: isFooterLink ? '0.75rem' : '0.875rem',
-                textTransform: isFooterLink ? 'none' : 'uppercase',
-                color: isFooterLink ? theme.palette.primary.contrastText : undefined,
-                '&:hover': isFooterLink ? {
-                    color: theme.palette.text.secondary,
-                    backgroundColor: 'transparent',
-                } : {},
-                ...(isMobileView ? { width: 'calc(100% - 32px)', my: 2, mx: 2, py: 1.5 } 
-                : isFooterLink ? { p: 0, m: 0, mt: 1, minWidth: 'auto' } 
-                : { ml: 2 })
-            }}
-        >
-            Admin Login
-        </Button>
-    );
-
     const mobileMenuDrawer = (
         <Drawer
             anchor="right"
@@ -531,8 +506,6 @@ const LandingPage = () => {
                                 <Button variant="text" onClick={() => scrollToSection('location')}>LOCATION</Button>
                                 <Button variant="text" onClick={() => scrollToSection('contact')}>CONTACT</Button>
                                 <Button variant="text" onClick={() => scrollToSection('track-order')}>TRACK ORDER</Button>
-                                {/* AdminLoginMuiButton removed from desktop appbar */}
-                                {/* <AdminLoginMuiButton /> */}
                             </Box>
                         )}
                          {/* Cart Icon */}
@@ -910,8 +883,6 @@ const LandingPage = () => {
                     <Typography variant="caption" display="block" sx={{ mt: 0.5, fontFamily: 'Open Sans', color: theme.palette.text.disabled }}>
                         Bayombong, Nueva Vizcaya, Philippines
                     </Typography>
-                    {/* Add Admin Login link to the footer */}
-                    <AdminLoginMuiButton isFooterLink={true} />
                 </Container>
             </Box>
         </Box>
@@ -919,5 +890,3 @@ const LandingPage = () => {
 };
 
 export default LandingPage;
-// ---
-// Note: Orders are sent to /api/orders. The admin should manage orders in their dashboard by fetching from this endpoint.
