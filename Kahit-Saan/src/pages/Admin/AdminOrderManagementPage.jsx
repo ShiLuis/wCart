@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import adminApi from '../../api/adminApi'; // Import the adminApi instance
 import {
   Box, Typography, Paper, CircularProgress, Alert, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Button, MenuItem, Select
@@ -21,8 +21,8 @@ const AdminOrderManagementPage = () => {
     setLoading(true);
     setError('');
     try {
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
-      const res = await axios.get(`${baseUrl}/api/orders`);
+      // No need to construct baseUrl, adminApi has it configured
+      const res = await adminApi.get('/orders'); // Use adminApi and relative path
       setOrders(res.data);
     } catch (err) {
       setError('Failed to fetch orders.');
@@ -34,8 +34,8 @@ const AdminOrderManagementPage = () => {
   const handleStatusChange = async (orderId, newStatus) => {
     setUpdatingId(orderId);
     try {
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
-      await axios.put(`${baseUrl}/api/orders/${orderId}/status`, { status: newStatus });
+      // No need to construct baseUrl, adminApi has it configured
+      await adminApi.put(`/orders/${orderId}/status`, { status: newStatus }); // Use adminApi
       await fetchOrders();
     } catch (err) {
       setError('Failed to update order status.');
@@ -55,6 +55,7 @@ const AdminOrderManagementPage = () => {
             <TableHead>
               <TableRow>
                 <TableCell>Order ID</TableCell>
+                <TableCell>Daily #</TableCell> {/* New Column */}
                 <TableCell>Customer</TableCell>
                 <TableCell>Contact</TableCell>
                 <TableCell>Items</TableCell>
@@ -65,7 +66,8 @@ const AdminOrderManagementPage = () => {
             <TableBody>
               {orders.map(order => (
                 <TableRow key={order._id}>
-                  <TableCell>{order._id}</TableCell>
+                  <TableCell>{order.orderId}</TableCell> {/* Use orderId */}
+                  <TableCell>{order.dailyOrderNumber}</TableCell> {/* New Column */}
                   <TableCell>{order.contact?.name}</TableCell>
                   <TableCell>
                     {order.contact?.phone}<br />

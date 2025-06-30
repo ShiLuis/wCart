@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'; // Your backend URL
+const API_URL = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:5000`; // Your backend URL
 
 // Axios instance for admin APIs
 const adminApi = axios.create({
@@ -8,7 +8,7 @@ const adminApi = axios.create({
 });
 
 // Ensure axios sends the token with requests
-const setAuthToken = (token) => {
+export const setAuthToken = (token) => {
   if (token) {
     adminApi.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   } else {
@@ -43,11 +43,11 @@ export const deleteUser = async (userId) => {
   return response.data;
 };
 
+export default adminApi;
+
 // You can also move menu item API calls here for consistency
 // Example:
 // export const getMenuItems = async () => {
 //   const response = await adminApi.get('/menu');
 //   return response.data;
 // };
-
-export { adminApi, setAuthToken }; // Export adminApi if needed directly, and setAuthToken

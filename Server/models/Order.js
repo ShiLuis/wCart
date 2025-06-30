@@ -1,6 +1,16 @@
 const mongoose = require('mongoose');
 
 const orderSchema = new mongoose.Schema({
+  orderId: {
+    type: String, // Changed from Number to String to accommodate the new format
+    unique: true,
+  },
+  dailyOrderNumber: {
+    type: Number,
+  },
+  orderDate: {
+      type: String, 
+  },
   items: [
     {
       _id: String,
@@ -13,6 +23,11 @@ const orderSchema = new mongoose.Schema({
     name: String,
     phone: String,
     email: String,
+  },
+  bankDetails: {
+    accountNumber: String,
+    accountName: String,
+    bankName: String,
   },
   orderStatus: {
     type: String,

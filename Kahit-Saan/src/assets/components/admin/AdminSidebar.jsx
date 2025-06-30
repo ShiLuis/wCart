@@ -40,6 +40,7 @@ const AdminSidebar = ({ drawerWidth, mobileOpen, handleDrawerToggle, handleTheme
     };
 
 const menuItems = [
+    { text: 'Daily Orders', icon: <LayoutDashboard size={20} />, path: '/admin/daily-orders' },
     { text: 'Menu Management', icon: <UtensilsCrossed size={20} />, path: '/admin/menu' },
     { text: 'User Management', icon: <Users size={20} />, path: '/admin/users' },
     { text: 'Order Management', icon: <ChefHat size={20} />, path: '/admin/orders' }, // Add this line

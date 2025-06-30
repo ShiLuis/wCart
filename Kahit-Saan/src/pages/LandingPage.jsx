@@ -18,6 +18,12 @@ import Badge from '@mui/material/Badge';
 import TextField from '@mui/material/TextField';
 import Snackbar from '@mui/material/Snackbar';
 import MuiAlert from '@mui/material/Alert';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
+import { Search } from 'lucide-react';
 // import './LandingPage.css'; // Keep for any global styles or truly custom CSS if needed
 
 const LandingPage = () => {
@@ -34,6 +40,18 @@ const LandingPage = () => {
     const [checkoutError, setCheckoutError] = useState('');
     const [checkoutSuccess, setCheckoutSuccess] = useState('');
     const [showOrderPlaced, setShowOrderPlaced] = useState(false);
+    const [isBankDetailsModalOpen, setIsBankDetailsModalOpen] = useState(false);
+    const [currentOrderId, setCurrentOrderId] = useState(null);
+    const [bankDetails, setBankDetails] = useState({ accountNumber: '', accountName: '', bankName: '' });
+    const [bankDetailsLoading, setBankDetailsLoading] = useState(false);
+    const [bankDetailsError, setBankDetailsError] = useState('');
+    const [orderSuccessData, setOrderSuccessData] = useState(null);
+    const [isOrderSuccessModalOpen, setIsOrderSuccessModalOpen] = useState(false);
+    const [trackingNumber, setTrackingNumber] = useState('');
+    const [trackingLoading, setTrackingLoading] = useState(false);
+    const [trackingError, setTrackingError] = useState('');
+    const [trackingResult, setTrackingResult] = useState(null);
+    const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
 
     useEffect(() => {
         const fetchPublicMenuItems = async () => {
@@ -41,7 +59,7 @@ const LandingPage = () => {
             setError(null);
             try {
                 // Ensure your server exposes GET /api/menu for public access
-                const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'; // Fallback for local dev
+                const baseUrl = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:5000`; // Use dynamic hostname
                 const response = await axios.get(`${baseUrl}/api/menu`);
                 setMenuItems(response.data);
             } catch (err) {
@@ -226,20 +244,59 @@ const LandingPage = () => {
         setCheckoutError('');
         setCheckoutSuccess('');
         try {
-            const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
-            await axios.post(`${baseUrl}/api/orders`, {
+            const baseUrl = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:5000`;
+            const response = await axios.post(`${baseUrl}/api/orders`, {
                 items: cart.map(({ _id, name, price, qty }) => ({ _id, name, price, qty })),
                 contact: checkoutInfo,
             });
-            setCheckoutSuccess('Order placed successfully!');
+            setCheckoutSuccess('Order placed successfully! Please enter your bank details.');
             setCart([]);
             setCheckoutInfo({ name: '', phone: '', email: '' });
-            setShowOrderPlaced(true);
-            setTimeout(() => setIsCartOpen(false), 1200);
+            setCurrentOrderId(response.data._id); // Save the order ID
+            setIsBankDetailsModalOpen(true); // Open the bank details modal
+            setIsCartOpen(false); // Close the cart drawer
         } catch (err) {
             setCheckoutError(err.response?.data?.message || err.message || 'Failed to place order.');
         } finally {
             setCheckoutLoading(false);
+        }
+    };
+
+    const handleBankDetailsSubmit = async (e) => {
+        e.preventDefault();
+        setBankDetailsLoading(true);
+        setBankDetailsError('');
+        try {
+            const baseUrl = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:5000`;
+            const response = await axios.put(`${baseUrl}/api/orders/${currentOrderId}/bankdetails`, {
+                bankDetails,
+            });
+            setIsBankDetailsModalOpen(false);
+            setOrderSuccessData(response.data); // Store the successful order data
+            setIsOrderSuccessModalOpen(true); // Open the success modal
+            setBankDetails({ accountNumber: '', accountName: '', bankName: '' }); // Reset form
+        } catch (err) {
+            setBankDetailsError(err.response?.data?.message || 'Failed to save bank details.');
+        } finally {
+            setBankDetailsLoading(false);
+        }
+    };
+
+    const handleTrackOrder = async (e) => {
+        e.preventDefault();
+        setTrackingLoading(true);
+        setTrackingError('');
+        setTrackingResult(null);
+        try {
+            const baseUrl = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:5000`;
+            const response = await axios.get(`${baseUrl}/api/orders/track/${trackingNumber}`);
+            setTrackingResult(response.data);
+            setIsTrackingModalOpen(true);
+        } catch (err) {
+            setTrackingError(err.response?.data?.message || 'Failed to track order.');
+            setIsTrackingModalOpen(true);
+        } finally {
+            setTrackingLoading(false);
         }
     };
 
@@ -354,6 +411,102 @@ const LandingPage = () => {
         </Snackbar>
     );
 
+    // Modal for showing success and order number
+    const orderSuccessModal = (
+        <Dialog open={isOrderSuccessModalOpen} onClose={() => setIsOrderSuccessModalOpen(false)}>
+            <DialogTitle>Payment Successful!</DialogTitle>
+            <DialogContent>
+                <DialogContentText>
+                    Your order has been placed. Your daily order number is:
+                </DialogContentText>
+                <Typography variant="h4" component="p" sx={{ textAlign: 'center', my: 2, fontWeight: 'bold' }}>
+                    {orderSuccessData?.dailyOrderNumber}
+                </Typography>
+                <DialogContentText>
+                    Please use this number to track your order's status.
+                </DialogContentText>
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={() => setIsOrderSuccessModalOpen(false)}>OK</Button>
+            </DialogActions>
+        </Dialog>
+    );
+
+    // Bank Details Modal
+    const bankDetailsModal = (
+        <Dialog open={isBankDetailsModalOpen} onClose={() => setIsBankDetailsModalOpen(false)}>
+            <DialogTitle>Enter Bank Details for Payment</DialogTitle>
+            <Box component="form" onSubmit={handleBankDetailsSubmit}>
+                <DialogContent>
+                    <DialogContentText>
+                        Please provide your bank details. The total amount will be deducted from your account.
+                    </DialogContentText>
+                    <TextField
+                        autoFocus
+                        margin="dense"
+                        id="accountName"
+                        label="Account Name"
+                        type="text"
+                        fullWidth
+                        variant="standard"
+                        value={bankDetails.accountName}
+                        onChange={(e) => setBankDetails({ ...bankDetails, accountName: e.target.value })}
+                        required
+                    />
+                    <TextField
+                        margin="dense"
+                        id="accountNumber"
+                        label="Account Number"
+                        type="text"
+                        fullWidth
+                        variant="standard"
+                        value={bankDetails.accountNumber}
+                        onChange={(e) => setBankDetails({ ...bankDetails, accountNumber: e.target.value })}
+                        required
+                    />
+                    <TextField
+                        margin="dense"
+                        id="bankName"
+                        label="Bank Name"
+                        type="text"
+                        fullWidth
+                        variant="standard"
+                        value={bankDetails.bankName}
+                        onChange={(e) => setBankDetails({ ...bankDetails, bankName: e.target.value })}
+                        required
+                    />
+                    {bankDetailsError && <Alert severity="error" sx={{ mt: 2 }}>{bankDetailsError}</Alert>}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setIsBankDetailsModalOpen(false)}>Cancel</Button>
+                    <Button type="submit" disabled={bankDetailsLoading}>
+                        {bankDetailsLoading ? <CircularProgress size={24} /> : 'Submit'}
+                    </Button>
+                </DialogActions>
+            </Box>
+        </Dialog>
+    );
+
+    const trackingModal = (
+        <Dialog open={isTrackingModalOpen} onClose={() => setIsTrackingModalOpen(false)}>
+            <DialogTitle>{trackingError ? 'Error' : 'Order Status'}</DialogTitle>
+            <DialogContent>
+                {trackingLoading ? (
+                    <CircularProgress />
+                ) : trackingError ? (
+                    <Alert severity="error">{trackingError}</Alert>
+                ) : (
+                    <DialogContentText>
+                        Your order (No. {trackingResult?.dailyOrderNumber}) is currently: <strong>{trackingResult?.orderStatus}</strong>
+                    </DialogContentText>
+                )}
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={() => setIsTrackingModalOpen(false)}>Close</Button>
+            </DialogActions>
+        </Dialog>
+    );
+
     return (
         // Base background and text color from theme
         <Box sx={{ backgroundColor: theme.palette.background.default, color: theme.palette.text.primary, minHeight: '100vh' }}> 
@@ -366,17 +519,7 @@ const LandingPage = () => {
                     <Toolbar disableGutters sx={{ height: {xs: 64, md: 80} }}>
                         <LogoAndBrandName />
                         <Box sx={{ flexGrow: 1 }} />
-                        {/* Cart Icon */}
-                        <IconButton
-                            color="inherit"
-                            onClick={() => setIsCartOpen(true)}
-                            sx={{ mr: isMobile ? 0 : 2 }}
-                            aria-label="cart"
-                        >
-                            <Badge badgeContent={cart.reduce((sum, i) => sum + i.qty, 0)} color="primary">
-                                <ShoppingCartIcon />
-                            </Badge>
-                        </IconButton>
+                       
                         {isMobile ? (
                             <IconButton size="large" edge="end" sx={{color: theme.palette.text.primary}} aria-label="open drawer" onClick={() => setIsMobileMenuOpen(true)}>
                                 <MenuIconLucide />
@@ -387,16 +530,33 @@ const LandingPage = () => {
                                 <Button variant="text" onClick={() => scrollToSection('about')}>ABOUT</Button>
                                 <Button variant="text" onClick={() => scrollToSection('location')}>LOCATION</Button>
                                 <Button variant="text" onClick={() => scrollToSection('contact')}>CONTACT</Button>
+                                <Button variant="text" onClick={() => scrollToSection('track-order')}>TRACK ORDER</Button>
                                 {/* AdminLoginMuiButton removed from desktop appbar */}
                                 {/* <AdminLoginMuiButton /> */}
                             </Box>
                         )}
+                         {/* Cart Icon */}
+                        <IconButton
+                            color="inherit"
+                            onClick={() => setIsCartOpen(true)}
+                            sx={{ mr: isMobile ? 0 : 2 }}
+                            aria-label="cart"
+                        >
+                            <Badge badgeContent={cart.reduce((sum, i) => sum + i.qty, 0)} color="primary">
+                                <ShoppingCartIcon />
+                            </Badge>
+                        </IconButton>
                     </Toolbar>
                 </Container>
             </AppBar>
             {mobileMenuDrawer}
             {cartDrawer}
             {orderPlacedSnackbar}
+            {bankDetailsModal}
+            {orderSuccessModal}
+            {trackingModal}
+
+            {/* Hero Section */}
             <Box id="hero" component="section" sx={{
                 minHeight: '100vh', // Full viewport height
                 backgroundImage: "url('/assets/Images/Hero_Image.jpg')", // Updated to use your local image
@@ -538,6 +698,31 @@ const LandingPage = () => {
                                 Our menu is currently empty. Please check back later!
                             </Typography>
                         )}
+                    </Container>
+                </Box>
+
+                <Box id="track-order" component="section" sx={{ py: { xs: 6, md: 10 }, backgroundColor: theme.palette.background.paper }}>
+                    <Container maxWidth="sm">
+                        <Box sx={{ textAlign: 'center', mb: { xs: 4, md: 6 } }}>
+                            <Search style={{ margin: '0 auto 16px auto', height: 48, width: 48, color: theme.palette.primary.main }} />
+                            <Typography variant="h2" component="h2" sx={{ fontWeight: 'bold' }}>Track Your Order</Typography>
+                            <Typography variant="body1" sx={{ color: 'text.secondary', mt: 2, maxWidth: '600px', mx: 'auto' }}>
+                                Enter the order number you received to check the status of your order.
+                            </Typography>
+                        </Box>
+                        <Box component="form" onSubmit={handleTrackOrder} sx={{ display: 'flex', gap: 2, maxWidth: '400px', mx: 'auto' }}>
+                            <TextField
+                                fullWidth
+                                label="Your Order Number"
+                                variant="outlined"
+                                value={trackingNumber}
+                                onChange={(e) => setTrackingNumber(e.target.value)}
+                                required
+                            />
+                            <Button type="submit" variant="contained" color="primary" disabled={trackingLoading} sx={{ py: 1.5, px: 4 }}>
+                                {trackingLoading ? <CircularProgress size={24} /> : 'Track'}
+                            </Button>
+                        </Box>
                     </Container>
                 </Box>
 

@@ -11,6 +11,7 @@ const AdminLayout = lazy(() => import("./layouts/AdminLayout"));
 const AdminMenuManagementPage = lazy(() => import("./pages/Admin/AdminMenuManagementPage"));
 const AdminUserManagementPage = lazy(() => import("./pages/Admin/AdminUserManagementPage"));
 const AdminOrderManagementPage = lazy(() => import("./pages/Admin/AdminOrderManagementPage"));
+const AdminDailyOrdersPage = lazy(() => import("./pages/Admin/AdminDailyOrdersPage"));
 // const AdminDashboardPage = lazy(() => import("./pages/Admin/AdminDashboardPage")); // Remove
 const AdminLoginPage = lazy(() => import("./pages/Admin/AdminLoginPage"));
 const PrivateRoute = lazy(() => import("./assets/components/admin/PrivateRoute")); // <-- ADD THIS LINE
@@ -50,6 +51,7 @@ function App() {
           <Route path="menu" element={<AdminMenuManagementPage />} />
           <Route path="users" element={<AdminUserManagementPage />} />
           <Route path="orders" element={<AdminOrderManagementPage />} />
+          <Route path="daily-orders" element={<AdminDailyOrdersPage />} />
           {/* <Route path="dashboard" element={<AdminDashboardPage />} /> Remove this line if dashboard is fully removed */}
         </Route>
 

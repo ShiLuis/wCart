@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 
 // Import the centralized adminApi and its setAuthToken function
-import { adminApi, setAuthToken as setApiAuthToken } from '../../api/adminApi';
+import adminApi, { setAuthToken } from '../../api/adminApi';
 
 // Define FormFields as a standalone component
 const StandaloneFormFields = ({ formData, handleInputChange, theme, photoPreview }) => (
@@ -100,7 +100,7 @@ const MenuManagement = () => {
     useEffect(() => {
         const token = localStorage.getItem('adminToken');
         if (token) {
-            setApiAuthToken(token);
+            setAuthToken(token);
         }
         // PrivateRoute should handle redirection if no token
     }, []);
