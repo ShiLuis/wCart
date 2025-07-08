@@ -1,10 +1,13 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:5000`; // Your backend URL
+const rawApiUrl = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:5000`;
+
+// Clean up the URL to ensure it doesn't have a trailing slash or /api
+const cleanedApiUrl = rawApiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
 
 // Axios instance for admin APIs
 const adminApi = axios.create({
-  baseURL: `${API_URL}/api`, // Adjusted to append /api to the base URL
+  baseURL: `${cleanedApiUrl}/api`, // Now it's safe to append /api
 });
 
 // Ensure axios sends the token with requests

@@ -25,7 +25,9 @@ import {
     LogOut,
     Home,
     Sun,
-    Moon
+    Moon,
+    ShieldCheck,
+    Calendar
 } from 'lucide-react';
 
 const AdminSidebar = ({ drawerWidth, mobileOpen, handleDrawerToggle, handleThemeToggle, isDarkMode }) => {
@@ -40,10 +42,11 @@ const AdminSidebar = ({ drawerWidth, mobileOpen, handleDrawerToggle, handleTheme
     };
 
 const menuItems = [
-    { text: 'Daily Orders', icon: <LayoutDashboard size={20} />, path: '/admin/daily-orders' },
+    { text: 'Daily Orders', icon: <Calendar />, path: '/admin/daily-orders' },
     { text: 'Menu Management', icon: <UtensilsCrossed size={20} />, path: '/admin/menu' },
     { text: 'User Management', icon: <Users size={20} />, path: '/admin/users' },
     { text: 'Order Management', icon: <ChefHat size={20} />, path: '/admin/orders' }, // Add this line
+    { text: 'Password Resets', icon: <ShieldCheck />, path: '/admin/password-resets' },
 ];
 
     const drawer = (

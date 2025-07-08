@@ -101,8 +101,6 @@ const AdminLoginPage = () => {
             autoFocus
             value={formData.username}
             onChange={handleChange}
-            variant="outlined" // Standard MUI text field
-            // InputLabelProps and InputProps can be styled further via theme components if needed
           />
           <TextField
             margin="normal"
@@ -115,29 +113,20 @@ const AdminLoginPage = () => {
             autoComplete="current-password"
             value={formData.password}
             onChange={handleChange}
-            variant="outlined"
           />
           <Button
             type="submit"
             fullWidth
             variant="contained"
-            color="primary" // Gold button (Primary from Style Guide)
             disabled={loading}
-            sx={{ 
-              mt: 3, 
-              mb: 2, 
-              py: 1.25, // Adjusted padding
-              fontFamily: 'Open Sans', 
-              fontWeight: 600,
-              // Hover handled by theme's MuiButton.styleOverrides.containedPrimary
-            }}
+            sx={{ mt: 3, mb: 2 }}
           >
             {loading ? 'Signing In...' : 'Sign In'}
           </Button>
-          <Grid container justifyContent="flex-end">
+          <Grid container>
             <Grid item>
-              <Link component={RouterLink} to="/" variant="body2" sx={{fontFamily: 'Open Sans', color: 'primary.main'}}>
-                Back to Homepage
+              <Link component={RouterLink} to="/admin/forgot-password" variant="body2" sx={{fontFamily: 'Open Sans', color: 'primary.main'}}>
+                Forgot password?
               </Link>
             </Grid>
           </Grid>

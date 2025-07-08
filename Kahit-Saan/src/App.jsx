@@ -12,8 +12,11 @@ const AdminMenuManagementPage = lazy(() => import("./pages/Admin/AdminMenuManage
 const AdminUserManagementPage = lazy(() => import("./pages/Admin/AdminUserManagementPage"));
 const AdminOrderManagementPage = lazy(() => import("./pages/Admin/AdminOrderManagementPage"));
 const AdminDailyOrdersPage = lazy(() => import("./pages/Admin/AdminDailyOrdersPage"));
+const AdminPasswordResetsPage = lazy(() => import("./pages/Admin/AdminPasswordResetsPage"));
 // const AdminDashboardPage = lazy(() => import("./pages/Admin/AdminDashboardPage")); // Remove
 const AdminLoginPage = lazy(() => import("./pages/Admin/AdminLoginPage"));
+const ForgotPasswordPage = lazy(() => import("./pages/Admin/ForgotPasswordPage"));
+const ResetPasswordPage = lazy(() => import("./pages/Admin/ResetPasswordPage")); // <-- ADD THIS LINE
 const PrivateRoute = lazy(() => import("./assets/components/admin/PrivateRoute")); // <-- ADD THIS LINE
 
 // Loading component for Suspense fallback
@@ -37,6 +40,8 @@ function App() {
         />
 
         <Route path="/admin/auth/login" element={<AdminLoginPage />} />
+        <Route path="/admin/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/admin/reset-password/:token" element={<ResetPasswordPage />} />
 
         {/* Admin Routes */}
         <Route
@@ -52,6 +57,7 @@ function App() {
           <Route path="users" element={<AdminUserManagementPage />} />
           <Route path="orders" element={<AdminOrderManagementPage />} />
           <Route path="daily-orders" element={<AdminDailyOrdersPage />} />
+          <Route path="password-resets" element={<AdminPasswordResetsPage />} />
           {/* <Route path="dashboard" element={<AdminDashboardPage />} /> Remove this line if dashboard is fully removed */}
         </Route>
 

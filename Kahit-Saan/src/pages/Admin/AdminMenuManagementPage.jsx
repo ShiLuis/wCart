@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     Box, Typography, Button, Grid, CircularProgress, Alert,
-    Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
+    DialogContentText,
     TextField, Select, MenuItem, FormControl, InputLabel, IconButton, Paper, CardMedia as MuiCardMedia, useTheme,
     CardContent
 } from '@mui/material';
@@ -13,6 +13,7 @@ import {
 
 // Import the centralized adminApi and its setAuthToken function
 import adminApi, { setAuthToken } from '../../api/adminApi';
+import ReusableModal from '../../components/admin/ReusableModal';
 
 // Define FormFields as a standalone component
 const StandaloneFormFields = ({ formData, handleInputChange, theme, photoPreview }) => (
@@ -320,61 +321,45 @@ const MenuManagement = () => {
                 </Grid>
             )}
 
-            {/* Add/Edit Form Modal */}
-            <Dialog 
-                open={isFormModalOpen} 
-                onClose={handleCloseModals} 
-                PaperProps={{sx: {borderRadius: '12px', backgroundColor: 'background.paper'}}}
-                maxWidth="sm" // Define max width for the dialog
-                fullWidth // Ensure dialog uses the maxWidth
+            {/* Form Modal for Add/Edit */}
+            <ReusableModal
+                open={isFormModalOpen}
+                onClose={handleCloseModals}
+                title={editingItem ? 'Edit Menu Item' : 'Add New Menu Item'}
+                actions={
+                    <>
+                        <Button onClick={handleCloseModals} color="secondary" variant="outlined">Cancel</Button>
+                        <Button onClick={handleSubmitForm} color="primary" variant="contained" disabled={formLoading} startIcon={formLoading ? <CircularProgress size={20} /> : <Save />}>
+                            {formLoading ? 'Saving...' : 'Save Changes'}
+                        </Button>
+                    </>
+                }
             >
-                <DialogTitle sx={{fontFamily: 'Montserrat', fontWeight: 'bold', color: 'text.primary', borderBottom: `1px solid ${theme.palette.divider}`, pb: 1.5, pt: 2}}>
-                    {editingItem ? 'Edit Menu Item' : 'Add New Menu Item'}
-                    <IconButton aria-label="close" onClick={handleCloseModals} sx={{position: 'absolute', right: theme.spacing(1.5), top: theme.spacing(1.5), color: 'grey.500'}}> <X /> </IconButton>
-                </DialogTitle>
-                <DialogContent sx={{ pt: theme.spacing(3) }}> {/* Adjusted padding top */}
-                    {formError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setFormError(null)}>{formError}</Alert>}
-                    <form id="menu-item-form" onSubmit={handleSubmitForm}>
-                        <StandaloneFormFields 
-                            formData={formData} 
-                            handleInputChange={handleInputChange} 
-                            theme={theme} 
-                            photoPreview={photoPreview} 
-                        />
-                    </form>
-                </DialogContent>
-                <DialogActions sx={{p: theme.spacing(2, 3), borderTop: `1px solid ${theme.palette.divider}`}}>
-                    <Button onClick={handleCloseModals} color="inherit" variant="outlined" sx={{fontFamily: 'Open Sans', fontWeight:600}}>Cancel</Button>
-                    <Button type="submit" form="menu-item-form" /* Connects to form via ID */ variant="contained" color="primary" disabled={formLoading} startIcon={formLoading ? <CircularProgress size={16} color="inherit"/> : <Save size={18}/>} sx={{fontFamily: 'Open Sans', fontWeight:600}}>
-                        {formLoading ? 'Saving...' : 'Save Changes'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
+                <form onSubmit={handleSubmitForm} noValidate>
+                    {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
+                    <StandaloneFormFields formData={formData} handleInputChange={handleInputChange} theme={theme} photoPreview={photoPreview} />
+                </form>
+            </ReusableModal>
 
             {/* Delete Confirmation Modal */}
-            <Dialog 
-                open={isDeleteModalOpen} 
-                onClose={handleCloseModals} 
-                PaperProps={{sx: {borderRadius: '12px', backgroundColor: 'background.paper'}}}
-                maxWidth="xs" // Smaller width for confirmation dialogs
-                fullWidth
+            <ReusableModal
+                open={isDeleteModalOpen}
+                onClose={handleCloseModals}
+                title="Confirm Deletion"
+                actions={
+                    <>
+                        <Button onClick={handleCloseModals} color="secondary" variant="outlined">Cancel</Button>
+                        <Button onClick={handleDeleteConfirm} color="error" variant="contained" disabled={formLoading} startIcon={formLoading ? <CircularProgress size={20} /> : <Trash2 />}>
+                            {formLoading ? 'Deleting...' : 'Delete'}
+                        </Button>
+                    </>
+                }
             >
-                <DialogTitle sx={{fontFamily: 'Montserrat', fontWeight: 'bold', color: 'text.primary', display:'flex', alignItems:'center', gap: 1}}>
-                    <AlertCircle size={24} style={{ color: theme.palette.warning.main }}/>
-                    Confirm Delete
-                </DialogTitle>
-                <DialogContent>
-                    <DialogContentText sx={{color: 'text.secondary'}}>
-                        Are you sure you want to delete "<Typography component="span" sx={{fontWeight:'bold'}}>{editingItem?.name || 'this item'}</Typography>"? This action cannot be undone.
-                    </DialogContentText>
-                </DialogContent>
-                <DialogActions sx={{p: theme.spacing(2,3)}}>
-                    <Button onClick={handleCloseModals} color="inherit" variant="outlined" sx={{fontFamily: 'Open Sans', fontWeight:600}}>Cancel</Button>
-                    <Button onClick={handleDeleteConfirm} variant="contained" color="error" disabled={formLoading} startIcon={formLoading ? <CircularProgress size={16} color="inherit"/> : <Trash2 size={18}/>} sx={{fontFamily: 'Open Sans', fontWeight:600}}>
-                        {formLoading ? 'Deleting...' : 'Delete'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
+                <DialogContentText>
+                    Are you sure you want to delete the item "<strong>{editingItem?.name}</strong>"? This action cannot be undone.
+                </DialogContentText>
+            </ReusableModal>
+
         </Box>
     );
 };
