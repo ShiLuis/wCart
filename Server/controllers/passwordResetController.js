@@ -28,11 +28,8 @@ const requestPasswordReset = async (req, res) => {
 
     await resetRequest.save();
 
-    // Emit a notification to all connected admins
-    io.emit('newPasswordResetRequest', {
-      message: `New password reset request from ${user.username}`,
-      requestId: resetRequest._id,
-    });
+    // Emit a notification to all connected admins to update their lists
+    io.emit('passwordResetRequestUpdated');
 
     res.status(201).json({ message: 'Password reset request submitted. An admin will review it shortly.' });
   } catch (error) {
@@ -78,6 +75,9 @@ const approveRequest = async (req, res) => {
         io.emit(`passwordResetApproved_${request.userId.username}`, { token: request.token });
     }
 
+    // Notify all admins to refresh their request list
+    io.emit('passwordResetRequestUpdated');
+
     res.json({ message: 'Password reset request approved.', request });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -108,6 +108,9 @@ const rejectRequest = async (req, res) => {
     if (request.userId && request.userId.username) {
         io.emit(`passwordResetRejected_${request.userId.username}`);
     }
+
+    // Notify all admins to refresh their request list
+    io.emit('passwordResetRequestUpdated');
 
     res.json({ message: 'Password reset request rejected.' });
   } catch (error) {
