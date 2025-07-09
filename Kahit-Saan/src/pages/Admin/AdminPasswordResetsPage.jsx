@@ -100,7 +100,13 @@ const AdminPasswordResetsPage = () => {
               <ListItem key={req._id} divider>
                 <ListItemText
                   primary={`Request from: ${req.userId.username}`}
-                  secondary={`Email: ${req.userId.email}`}
+                  secondary={
+                    <Box component="span" sx={{ display: 'block', fontSize: '0.8rem', color: 'text.secondary' }}>
+                      {`On: ${new Date(req.requestedAt).toLocaleString()}`}
+                      <br />
+                      {`From IP: ${req.ipAddress || 'Unknown'}`}
+                    </Box>
+                  }
                 />
                 <Box sx={{ display: 'flex', gap: 1 }}>
                   <Button

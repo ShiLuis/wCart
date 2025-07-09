@@ -58,6 +58,10 @@ const io = new Server(server, {
 
 app.set('socketio', io); // Make io accessible to our routes
 
+// Trust the proxy to get the real IP address. 
+// This is necessary if your app is behind a reverse proxy (like Nginx, Heroku, etc.)
+app.enable('trust proxy');
+
 // Connect Database
 connectDB();
 

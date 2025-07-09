@@ -9,6 +9,7 @@ const PasswordReset = require('../models/PasswordReset');
 const requestPasswordReset = async (req, res) => {
   const { username } = req.body;
   const io = req.app.get('socketio');
+  const ipAddress = req.ip; // Get IP address from request
 
   try {
     const user = await AdminUser.findOne({ username });
@@ -24,6 +25,7 @@ const requestPasswordReset = async (req, res) => {
       userId: user._id,
       token,
       expiresAt,
+      ipAddress, // Save the IP address
     });
 
     await resetRequest.save();

@@ -28,6 +28,9 @@ const passwordResetSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'AdminUser',
   },
+  ipAddress: {
+    type: String,
+  },
 });
 
 module.exports = mongoose.model('PasswordReset', passwordResetSchema);
