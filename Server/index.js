@@ -3,6 +3,7 @@ const http = require('http');
 const { Server } = require("socket.io");
 const cors = require('cors');
 const dotenv = require('dotenv');
+const { setIO } = require('./config/socket');
 
 // Load .env variables first
 dotenv.config();
@@ -83,20 +84,38 @@ app.get('/', (req, res) => {
 });
 
 io.on('connection', (socket) => {
-  console.log('a user connected');
+  console.log('A user connected:', socket.id);
+  
+  // Store user's IP and device info for targeting
+  const userInfo = {
+    ip: socket.request.connection.remoteAddress,
+    userAgent: socket.request.headers['user-agent'],
+    socketId: socket.id
+  };
+  console.log('User info:', userInfo);
+  
+  // Join order room for real-time notifications
+  socket.on('join-order-room', (orderId) => {
+    socket.join(`order-${orderId}`);
+    console.log(`User ${socket.id} joined order room: order-${orderId}`);
+  });
+  
+  // Leave order room
+  socket.on('leave-order-room', (orderId) => {
+    socket.leave(`order-${orderId}`);
+    console.log(`User ${socket.id} left order room: order-${orderId}`);
+  });
+  
   socket.on('disconnect', () => {
-    console.log('user disconnected');
+    console.log('User disconnected:', socket.id);
   });
 });
 
-// Basic Error Handler
-app.use((err, req, res, next) => {
-  console.error("Global Error Handler:", err.stack);
-  res.status(err.status || 500).json({
-    message: err.message || 'An unexpected error occurred',
-    error: process.env.NODE_ENV === 'development' ? err : {}
-  });
-});
+// Set the io instance for use in other files
+setIO(io);
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+// Export io for use in other files
+module.exports = { io };

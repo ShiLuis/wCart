@@ -24,6 +24,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
 import { Search } from 'lucide-react';
+import { socket, joinOrderRoom, leaveOrderRoom } from '../api/socket';
 // import './LandingPage.css'; // Keep for any global styles or truly custom CSS if needed
 
 const LandingPage = () => {
@@ -45,6 +46,8 @@ const LandingPage = () => {
     const [bankDetails, setBankDetails] = useState({ accountNumber: '', accountName: '', bankName: '' });
     const [bankDetailsLoading, setBankDetailsLoading] = useState(false);
     const [bankDetailsError, setBankDetailsError] = useState('');
+    const [accountLookupLoading, setAccountLookupLoading] = useState(false);
+    const [accountLookupError, setAccountLookupError] = useState('');
     const [orderSuccessData, setOrderSuccessData] = useState(null);
     const [isOrderSuccessModalOpen, setIsOrderSuccessModalOpen] = useState(false);
     const [trackingNumber, setTrackingNumber] = useState('');
@@ -52,6 +55,11 @@ const LandingPage = () => {
     const [trackingError, setTrackingError] = useState('');
     const [trackingResult, setTrackingResult] = useState(null);
     const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
+    
+    // Real-time notification states
+    const [notifications, setNotifications] = useState([]);
+    const [showNotification, setShowNotification] = useState(false);
+    const [currentNotification, setCurrentNotification] = useState(null);
 
     useEffect(() => {
         const fetchPublicMenuItems = async () => {
@@ -72,6 +80,54 @@ const LandingPage = () => {
 
         fetchPublicMenuItems();
     }, []); // Empty dependency array ensures this runs once on mount
+
+    // Socket connection for real-time notifications
+    useEffect(() => {
+        // Connect socket when component mounts
+        socket.connect();
+        
+        // Request notification permission for browser notifications
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+        
+        // Listen for order updates
+        socket.on('order-update', (data) => {
+            console.log('Order update received:', data);
+            setCurrentNotification({
+                message: data.message,
+                severity: data.status === 'completed' ? 'success' : 
+                         data.status === 'cancelled' ? 'error' : 'info'
+            });
+            setShowNotification(true);
+            
+            // Show browser notification if permitted
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification('Kahit Saan - Order Update', {
+                    body: data.message,
+                    icon: '/assets/Images/3x/LogoBlack.webp',
+                    tag: 'order-update'
+                });
+            }
+            
+            // Add to notifications list
+            setNotifications(prev => [...prev, data]);
+        });
+        
+        // Cleanup on unmount
+        return () => {
+            socket.off('order-update');
+            socket.disconnect();
+        };
+    }, []);
+
+    // Join order room when an order is placed
+    useEffect(() => {
+        if (currentOrderId) {
+            joinOrderRoom(currentOrderId);
+            console.log('Joined order room for notifications:', currentOrderId);
+        }
+    }, [currentOrderId]);
 
     const scrollToSection = (sectionId) => {
         const section = document.getElementById(sectionId);
@@ -243,15 +299,37 @@ const LandingPage = () => {
         setBankDetailsError('');
         try {
             const baseUrl = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:5000`;
+            
+            console.log('Submitting bank details for payment processing...');
+            console.log('Order ID:', currentOrderId);
+            console.log('Bank details:', bankDetails);
+            
             const response = await axios.put(`${baseUrl}/api/orders/${currentOrderId}/bankdetails`, {
                 bankDetails,
             });
-            setIsBankDetailsModalOpen(false);
-            setOrderSuccessData(response.data); // Store the successful order data
-            setIsOrderSuccessModalOpen(true); // Open the success modal
-            setBankDetails({ accountNumber: '', accountName: '', bankName: '' }); // Reset form
+            
+            console.log('Bank details submission response:', response.data);
+            
+            // Check if payment was successful
+            if (response.data.isPaid) {
+                setIsBankDetailsModalOpen(false);
+                setOrderSuccessData(response.data); // Store the successful order data
+                setIsOrderSuccessModalOpen(true); // Open the success modal
+                setBankDetails({ accountNumber: '', accountName: '', bankName: '' }); // Reset form
+            } else {
+                // Payment failed, show error
+                setBankDetailsError(
+                    response.data.paymentError || 
+                    'Payment processing failed. Please check your account details and try again.'
+                );
+            }
         } catch (err) {
-            setBankDetailsError(err.response?.data?.message || 'Failed to save bank details.');
+            console.error('Bank details submission error:', err);
+            setBankDetailsError(
+                err.response?.data?.message || 
+                err.response?.data?.paymentError ||
+                'Failed to process payment. Please try again.'
+            );
         } finally {
             setBankDetailsLoading(false);
         }
@@ -275,10 +353,120 @@ const LandingPage = () => {
         }
     };
 
+    // Bank account lookup function
+    const lookupBankAccount = async (accountNumber) => {
+        if (!accountNumber || accountNumber.length < 8) {
+            setBankDetails(prev => ({ ...prev, accountName: '' }));
+            setAccountLookupError('');
+            return;
+        }
+
+        setAccountLookupLoading(true);
+        setAccountLookupError('');
+        
+        try {
+            console.log('Looking up account:', accountNumber);
+            console.log('API URL:', 'http://192.168.8.201:5000/api/users');
+            
+            // First, check if the bank API is online
+            await axios.get('http://192.168.8.201:5000/api/health');
+            
+            // Get all users/accounts from the bank API
+            const response = await axios.get('http://192.168.8.201:5000/api/users');
+            console.log('Bank API response:', response.data);
+            
+            // Find the account with matching account number
+            const users = Array.isArray(response.data) ? response.data : [];
+            const foundUser = users.find(user => 
+                user.accountNumber === accountNumber || 
+                user.account_number === accountNumber ||
+                user.id === accountNumber
+            );
+            
+            if (foundUser) {
+                setBankDetails(prev => ({ 
+                    ...prev, 
+                    accountName: foundUser.name || foundUser.accountName || foundUser.account_name,
+                    bankName: foundUser.bankName || foundUser.bank_name || 'BPI Bank'
+                }));
+                setAccountLookupError('');
+                console.log('Account found:', foundUser);
+            } else {
+                setAccountLookupError('Account not found in BPI system');
+                setBankDetails(prev => ({ ...prev, accountName: '' }));
+                console.log('Available accounts:', users.map(u => ({
+                    id: u.id,
+                    accountNumber: u.accountNumber || u.account_number,
+                    name: u.name || u.accountName
+                })));
+            }
+        } catch (err) {
+            console.error('Bank API lookup error:', err);
+            console.error('Error response:', err.response?.data);
+            console.error('Error status:', err.response?.status);
+            
+            if (err.response?.status === 404) {
+                setAccountLookupError('Bank API not available. Please enter account details manually.');
+            } else if (err.code === 'ECONNREFUSED' || err.code === 'ERR_NETWORK') {
+                setAccountLookupError('Cannot connect to bank server. Please check if the bank system is running.');
+            } else {
+                setAccountLookupError('Unable to verify account. Please enter manually.');
+            }
+            setBankDetails(prev => ({ ...prev, accountName: '' }));
+        } finally {
+            setAccountLookupLoading(false);
+        }
+    };
+
+    // Debug function to test bank API connection
+    const testBankConnection = async () => {
+        try {
+            console.log('Testing bank API connection...');
+            const healthResponse = await axios.get('http://192.168.8.201:5000/api/health');
+            console.log('Health check:', healthResponse.data);
+            
+            const usersResponse = await axios.get('http://192.168.8.201:5000/api/users');
+            console.log('Available users:', usersResponse.data);
+            
+            alert('Bank API is working! Check console for available accounts.');
+        } catch (err) {
+            console.error('Bank API connection failed:', err);
+            alert('Bank API connection failed. Check console for details.');
+        }
+    };
+
+    // Handle account number change with debounced lookup
+    const handleAccountNumberChange = (value) => {
+        setBankDetails(prev => ({ ...prev, accountNumber: value }));
+        
+        // Clear previous timeout
+        if (window.accountLookupTimeout) {
+            clearTimeout(window.accountLookupTimeout);
+        }
+        
+        // Set new timeout for lookup (debounced)
+        window.accountLookupTimeout = setTimeout(() => {
+            lookupBankAccount(value);
+        }, 1000); // Wait 1 second after user stops typing
+    };
+
+    // Handle bank details modal close
+    const handleBankDetailsModalClose = () => {
+        setIsBankDetailsModalOpen(false);
+        // Clear any pending lookup timeout
+        if (window.accountLookupTimeout) {
+            clearTimeout(window.accountLookupTimeout);
+        }
+        // Reset form and errors
+        setBankDetails({ accountNumber: '', accountName: '', bankName: '' });
+        setBankDetailsError('');
+        setAccountLookupError('');
+    };
+
     // Cart Drawer UI (improved)
     const cartDrawer = (
         <Drawer anchor="right" open={isCartOpen} onClose={() => setIsCartOpen(false)}>
-            <Box sx={{ width: { xs: 320, sm: 380 }, p: 2, display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <Box sx={{ width: { xs: 380, sm: 400 }, p: 2, display: 'flex', flexDirection: 'column', height: '100%' }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                     <Typography variant="h6" fontWeight="bold">Your Cart</Typography>
                     <IconButton onClick={() => setIsCartOpen(false)}><CloseIconLucide /></IconButton>
@@ -303,12 +491,12 @@ const LandingPage = () => {
                                                 disabled={item.qty <= 1}
                                             >-</IconButton>
                                             <TextField
-                                                type="number"
+                                                // type="number"
                                                 size="small"
                                                 value={item.qty}
                                                 onChange={(e) => handleUpdateQty(item._id, parseInt(e.target.value) || 1)}
-                                                inputProps={{ min: 1, style: { width: 36, textAlign: 'center' } }}
-                                                sx={{ mx: 0.5, width: 48 }}
+                                                // inputProps={{ min: 1, style: { width: 36, textAlign: 'center' } }}
+                                                sx={{ mx: 0.5, width: 55, textAlign: 'center' }}
                                             />
                                             <IconButton
                                                 size="small"
@@ -386,20 +574,53 @@ const LandingPage = () => {
         </Snackbar>
     );
 
+    // Real-time notification snackbar
+    const notificationSnackbar = (
+        <Snackbar
+            open={showNotification}
+            autoHideDuration={6000}
+            onClose={() => setShowNotification(false)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        >
+            <MuiAlert 
+                elevation={6} 
+                variant="filled" 
+                severity={currentNotification?.severity || 'info'} 
+                sx={{ width: '100%' }}
+                onClose={() => setShowNotification(false)}
+            >
+                {currentNotification?.message}
+            </MuiAlert>
+        </Snackbar>
+    );
+
     // Modal for showing success and order number
     const orderSuccessModal = (
         <Dialog open={isOrderSuccessModalOpen} onClose={() => setIsOrderSuccessModalOpen(false)}>
-            <DialogTitle>Payment Successful!</DialogTitle>
+            <DialogTitle>
+                {orderSuccessData?.isPaid ? 'Payment Successful!' : 'Order Placed!'}
+            </DialogTitle>
             <DialogContent>
                 <DialogContentText>
-                    Your order has been placed. Your daily order number is:
+                    {orderSuccessData?.isPaid 
+                        ? 'Your payment has been processed successfully. Your daily order number is:'
+                        : 'Your order has been placed. Your daily order number is:'
+                    }
                 </DialogContentText>
                 <Typography variant="h4" component="p" sx={{ textAlign: 'center', my: 2, fontWeight: 'bold' }}>
                     {orderSuccessData?.dailyOrderNumber}
                 </Typography>
                 <DialogContentText>
-                    Please use this number to track your order's status.
+                    {orderSuccessData?.isPaid 
+                        ? 'Your order is now being prepared. You will receive notifications about the status.'
+                        : 'Please complete the payment process. You can track your order using the number above.'
+                    }
                 </DialogContentText>
+                {orderSuccessData?.transactionId && (
+                    <DialogContentText sx={{ mt: 1, fontSize: '0.875rem', color: 'text.secondary' }}>
+                        Transaction ID: {orderSuccessData.transactionId}
+                    </DialogContentText>
+                )}
             </DialogContent>
             <DialogActions>
                 <Button onClick={() => setIsOrderSuccessModalOpen(false)}>OK</Button>
@@ -409,15 +630,33 @@ const LandingPage = () => {
 
     // Bank Details Modal
     const bankDetailsModal = (
-        <Dialog open={isBankDetailsModalOpen} onClose={() => setIsBankDetailsModalOpen(false)}>
+        <Dialog open={isBankDetailsModalOpen} onClose={handleBankDetailsModalClose}>
             <DialogTitle>Enter Bank Details for Payment</DialogTitle>
             <Box component="form" onSubmit={handleBankDetailsSubmit}>
                 <DialogContent>
                     <DialogContentText>
-                        Please provide your bank details. The total amount will be deducted from your account.
+                        Please provide your bank details. ₱{cart.reduce((sum, i) => sum + i.price * i.qty, 0).toFixed(2)} will be deducted from your account.
                     </DialogContentText>
                     <TextField
-                        autoFocus
+                        margin="dense"
+                        id="accountNumber"
+                        label="Account Number"
+                        type="text"
+                        fullWidth
+                        variant="standard"
+                        value={bankDetails.accountNumber}
+                        onChange={(e) => handleAccountNumberChange(e.target.value)}
+                        required
+                        disabled={bankDetailsLoading}
+                        InputProps={{
+                            endAdornment: accountLookupLoading && (
+                                <CircularProgress size={20} sx={{ ml: 1 }} />
+                            ),
+                        }}
+                        helperText={accountLookupError || "Enter your account number to auto-fill account name"}
+                        error={!!accountLookupError}
+                    />
+                    <TextField
                         margin="dense"
                         id="accountName"
                         label="Account Name"
@@ -427,17 +666,11 @@ const LandingPage = () => {
                         value={bankDetails.accountName}
                         onChange={(e) => setBankDetails({ ...bankDetails, accountName: e.target.value })}
                         required
-                    />
-                    <TextField
-                        margin="dense"
-                        id="accountNumber"
-                        label="Account Number"
-                        type="text"
-                        fullWidth
-                        variant="standard"
-                        value={bankDetails.accountNumber}
-                        onChange={(e) => setBankDetails({ ...bankDetails, accountNumber: e.target.value })}
-                        required
+                        disabled={bankDetailsLoading}
+                        InputProps={{
+                            readOnly: !!bankDetails.accountName && !accountLookupError,
+                        }}
+                        helperText={bankDetails.accountName && !accountLookupError ? "Auto-filled from bank records" : ""}
                     />
                     <TextField
                         margin="dense"
@@ -449,13 +682,36 @@ const LandingPage = () => {
                         value={bankDetails.bankName}
                         onChange={(e) => setBankDetails({ ...bankDetails, bankName: e.target.value })}
                         required
+                        disabled={bankDetailsLoading}
                     />
+                    
+                    {/* Temporary debug button - remove after testing */}
+                    <Button 
+                        variant="outlined" 
+                        size="small" 
+                        onClick={testBankConnection}
+                        sx={{ mt: 2, mb: 1 }}
+                        fullWidth
+                        disabled={bankDetailsLoading}
+                    >
+                        Test Bank API Connection
+                    </Button>
+                    
+                    {bankDetailsLoading && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', mt: 2, mb: 1 }}>
+                            <CircularProgress size={20} sx={{ mr: 1 }} />
+                            <Typography variant="body2" color="text.secondary">
+                                Processing payment...
+                            </Typography>
+                        </Box>
+                    )}
+                    
                     {bankDetailsError && <Alert severity="error" sx={{ mt: 2 }}>{bankDetailsError}</Alert>}
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setIsBankDetailsModalOpen(false)}>Cancel</Button>
-                    <Button type="submit" disabled={bankDetailsLoading}>
-                        {bankDetailsLoading ? <CircularProgress size={24} /> : 'Submit'}
+                    <Button onClick={handleBankDetailsModalClose} disabled={bankDetailsLoading}>Cancel</Button>
+                    <Button type="submit" disabled={bankDetailsLoading || accountLookupLoading || !bankDetails.accountNumber || !bankDetails.accountName}>
+                        {bankDetailsLoading ? <CircularProgress size={24} /> : 'Process Payment'}
                     </Button>
                 </DialogActions>
             </Box>
@@ -525,6 +781,7 @@ const LandingPage = () => {
             {mobileMenuDrawer}
             {cartDrawer}
             {orderPlacedSnackbar}
+            {notificationSnackbar}
             {bankDetailsModal}
             {orderSuccessModal}
             {trackingModal}

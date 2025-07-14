@@ -29,6 +29,23 @@ const orderSchema = new mongoose.Schema({
     accountName: String,
     bankName: String,
   },
+  totalPrice: {
+    type: Number,
+    default: 0
+  },
+  isPaid: {
+    type: Boolean,
+    default: false
+  },
+  paidAt: {
+    type: Date
+  },
+  transactionId: {
+    type: String
+  },
+  paymentError: {
+    type: String
+  },
   orderStatus: {
     type: String,
     enum: ['pending', 'preparing', 'completed', 'cancelled'],
