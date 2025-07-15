@@ -54,7 +54,19 @@ const orderSchema = new mongoose.Schema({
   notes: {
     type: String,
     default: ''
-  }
+  },
+  // NEW: Track ingredient consumption when order is completed
+  ingredientConsumption: [{
+    menuItem: String,
+    ingredient: String,
+    consumed: Number,
+    unit: String,
+    remainingStock: Number,
+    consumedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }]
 }, { timestamps: true });
 
 module.exports = mongoose.model('Order', orderSchema);

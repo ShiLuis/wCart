@@ -15,6 +15,7 @@ require('./models/MenuItem'); // This ensures the MenuItem schema is registered 
 require('./models/AdminUser'); // This ensures the AdminUser schema is registered with Mongoose
 require('./models/Customer'); // This ensures the Customer schema is registered with Mongoose
 require('./models/PasswordReset'); // This ensures the PasswordReset schema is registered with Mongoose
+require('./models/Ingredient'); // This ensures the Ingredient schema is registered with Mongoose
 
 // Now require routes (which in turn require controllers that use the models)
 const menuRoutes = require('./routes/menuRoutes');
@@ -23,6 +24,8 @@ const userRoutes = require('./routes/userRoutes'); // Add this line
 const orderRoutes = require('./routes/orderRoutes');
 const customerAuthRoutes = require('./routes/customerAuthRoutes');
 const passwordResetRoutes = require('./routes/passwordResetRoutes');
+const analyticsRoutes = require('./routes/analyticsRoutes');
+const inventoryRoutes = require('./routes/inventoryRoutes');
 
 const app = express(); // <-- Initialize app first
 const server = http.createServer(app);
@@ -78,6 +81,8 @@ app.use('/api/users', userRoutes); // Add this line
 app.use('/api/orders', orderRoutes);
 app.use('/api/customers', customerAuthRoutes); // Add this line for customer routes
 app.use('/api/password-reset', passwordResetRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/inventory', inventoryRoutes);
 
 app.get('/', (req, res) => {
   res.send('Kahit Saan API is running...');
@@ -104,6 +109,18 @@ io.on('connection', (socket) => {
   socket.on('leave-order-room', (orderId) => {
     socket.leave(`order-${orderId}`);
     console.log(`User ${socket.id} left order room: order-${orderId}`);
+  });
+  
+  // Join inventory management room (for admins)
+  socket.on('join-inventory-room', () => {
+    socket.join('inventory-management');
+    console.log(`User ${socket.id} joined inventory management room`);
+  });
+  
+  // Leave inventory management room
+  socket.on('leave-inventory-room', () => {
+    socket.leave('inventory-management');
+    console.log(`User ${socket.id} left inventory management room`);
   });
   
   socket.on('disconnect', () => {

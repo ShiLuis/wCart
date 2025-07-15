@@ -418,23 +418,6 @@ const LandingPage = () => {
         }
     };
 
-    // Debug function to test bank API connection
-    const testBankConnection = async () => {
-        try {
-            console.log('Testing bank API connection...');
-            const healthResponse = await axios.get('http://192.168.8.201:5000/api/health');
-            console.log('Health check:', healthResponse.data);
-            
-            const usersResponse = await axios.get('http://192.168.8.201:5000/api/users');
-            console.log('Available users:', usersResponse.data);
-            
-            alert('Bank API is working! Check console for available accounts.');
-        } catch (err) {
-            console.error('Bank API connection failed:', err);
-            alert('Bank API connection failed. Check console for details.');
-        }
-    };
-
     // Handle account number change with debounced lookup
     const handleAccountNumberChange = (value) => {
         setBankDetails(prev => ({ ...prev, accountNumber: value }));
@@ -684,18 +667,6 @@ const LandingPage = () => {
                         required
                         disabled={bankDetailsLoading}
                     />
-                    
-                    {/* Temporary debug button - remove after testing */}
-                    <Button 
-                        variant="outlined" 
-                        size="small" 
-                        onClick={testBankConnection}
-                        sx={{ mt: 2, mb: 1 }}
-                        fullWidth
-                        disabled={bankDetailsLoading}
-                    >
-                        Test Bank API Connection
-                    </Button>
                     
                     {bankDetailsLoading && (
                         <Box sx={{ display: 'flex', alignItems: 'center', mt: 2, mb: 1 }}>

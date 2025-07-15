@@ -4,6 +4,7 @@ const Counter = require('../models/Counter');
 const DailyCounter = require('../models/DailyCounter'); // Import DailyCounter
 const axios = require('axios');
 const { getIO } = require('../config/socket');
+const { consumeIngredients } = require('./inventoryController');
 
 // Helper function to send real-time notifications
 const sendOrderNotification = (orderId, message, status) => {
@@ -86,14 +87,37 @@ const updateOrderWithBankDetails = async (req, res) => {
   const { bankDetails } = req.body;
 
   try {
+    console.log('Received bank details request for order:', req.params.id);
+    console.log('Bank details:', bankDetails);
+
     const order = await Order.findById(req.params.id);
 
-    if (order) {
-      order.bankDetails = bankDetails;
+    if (!order) {
+      console.log('Order not found:', req.params.id);
+      return res.status(404).json({ message: 'Order not found' });
+    }
 
-      // Calculate total price from items
-      const totalPrice = order.items.reduce((acc, item) => acc + item.price * item.quantity, 0);
-      order.totalPrice = totalPrice; // Save the total price
+    console.log('Found order:', order._id);
+    console.log('Order items:', order.items);
+
+    order.bankDetails = bankDetails;
+
+    // Calculate total price from items
+    const totalPrice = order.items.reduce((acc, item) => {
+      const quantity = item.quantity || item.qty || 1;
+      const price = item.price || 0;
+      console.log(`Item: ${item.name}, Price: ${price}, Qty: ${quantity}`);
+      return acc + (price * quantity);
+    }, 0);
+    
+    if (totalPrice <= 0) {
+      console.error('Invalid total price calculated:', totalPrice);
+      return res.status(400).json({ message: 'Invalid order total. Please check your items.' });
+    }
+
+    order.totalPrice = totalPrice;
+
+    console.log('Calculated total price:', totalPrice);
 
       // --- Bank API Integration ---
       console.log('Processing payment through bank API...');
@@ -120,85 +144,30 @@ const updateOrderWithBankDetails = async (req, res) => {
 
         console.log('Account verified:', foundUser);
 
-        // Try different possible transfer endpoints
-        let transferSuccess = false;
-        let transactionId = null;
-        let transferError = null;
-
-        // Attempt 1: Try /api/transfer endpoint
-        try {
-          console.log('Attempting transfer via /api/transfer...');
-          const transferData = {
-            fromAccountNumber: bankDetails.accountNumber,
-            toAccountNumber: '12345678901', // Restaurant's account number
-            amount: totalPrice,
-            description: `Payment for order ${order.dailyOrderNumber || order._id}`,
-            fromAccountName: bankDetails.accountName,
-            toAccountName: 'Kahit Saan Restaurant'
-          };
-
-          const transferResponse = await axios.post('http://192.168.8.201:5000/api/transfer', transferData);
-          if (transferResponse.data && transferResponse.data.success) {
-            transferSuccess = true;
-            transactionId = transferResponse.data.transactionId || transferResponse.data.id;
-            console.log('Transfer successful via /api/transfer');
-          }
-        } catch (transferErr) {
-          console.log('Transfer via /api/transfer failed:', transferErr.response?.data || transferErr.message);
-          transferError = transferErr;
+        // Check if user has sufficient balance
+        if (foundUser.balance < totalPrice) {
+          throw new Error(`Insufficient balance. Available: ₱${foundUser.balance}, Required: ₱${totalPrice}`);
         }
 
-        // Attempt 2: Try /api/transactions endpoint if first attempt failed
-        if (!transferSuccess) {
-          try {
-            console.log('Attempting transfer via /api/transactions...');
-            const transactionData = {
-              fromAccount: bankDetails.accountNumber,
-              toAccount: '12345678901',
-              amount: totalPrice,
-              type: 'transfer',
-              description: `Payment for order ${order.dailyOrderNumber || order._id}`
-            };
+        // Process payment through bank API using the correct endpoint
+        console.log('Processing transfer via /api/users/transfer...');
+        const transferData = {
+          fromUserId: foundUser._id,
+          toAccountNumber: '322785837406', // Restaurant account
+          amount: totalPrice,
+          description: `Payment for order ${order.dailyOrderNumber || order._id} - Kahit Saan Restaurant`
+        };
 
-            const transactionResponse = await axios.post('http://192.168.8.201:5000/api/transactions', transactionData);
-            if (transactionResponse.data && (transactionResponse.data.success || transactionResponse.status === 200 || transactionResponse.status === 201)) {
-              transferSuccess = true;
-              transactionId = transactionResponse.data.id || transactionResponse.data.transactionId || Date.now().toString();
-              console.log('Transfer successful via /api/transactions');
-            }
-          } catch (transactionErr) {
-            console.log('Transfer via /api/transactions failed:', transactionErr.response?.data || transactionErr.message);
-          }
-        }
+        console.log('Sending payment request to bank API:', transferData);
+        const transferResponse = await axios.post('http://192.168.8.201:5000/api/users/transfer', transferData);
+        
+        console.log('Bank API response:', transferResponse.data);
 
-        // Attempt 3: Try /api/pay endpoint if other attempts failed
-        if (!transferSuccess) {
-          try {
-            console.log('Attempting payment via /api/pay...');
-            const paymentData = {
-              accountNumber: bankDetails.accountNumber,
-              accountName: bankDetails.accountName,
-              amount: totalPrice,
-              merchantAccount: '12345678901',
-              orderId: order.dailyOrderNumber || order._id
-            };
-
-            const paymentResponse = await axios.post('http://192.168.8.201:5000/api/pay', paymentData);
-            if (paymentResponse.data && (paymentResponse.data.success || paymentResponse.status === 200)) {
-              transferSuccess = true;
-              transactionId = paymentResponse.data.transactionId || paymentResponse.data.id || Date.now().toString();
-              console.log('Payment successful via /api/pay');
-            }
-          } catch (payErr) {
-            console.log('Payment via /api/pay failed:', payErr.response?.data || payErr.message);
-          }
-        }
-
-        if (transferSuccess) {
+        if (transferResponse.data && transferResponse.data.message === 'Transfer successful') {
           order.isPaid = true;
           order.paidAt = Date.now();
           order.orderStatus = 'preparing';
-          order.transactionId = transactionId;
+          order.transactionId = transferResponse.data.transaction?._id || transferResponse.data.transaction?.transactionId || Date.now().toString();
           
           // Send notification about successful payment
           sendOrderNotification(
@@ -208,50 +177,56 @@ const updateOrderWithBankDetails = async (req, res) => {
           );
           
           console.log('Payment successful, order updated to preparing');
+          console.log('Transaction ID:', order.transactionId);
+          console.log('Customer balance after payment:', transferResponse.data.balance);
         } else {
-          // All transfer attempts failed, but account exists - set as pending for manual processing
-          order.orderStatus = 'pending';
-          order.paymentError = 'Payment processing temporarily unavailable. Order will be processed manually.';
-          console.log('All payment methods failed, setting order to pending for manual processing');
-          
-          // Send notification about payment pending
-          sendOrderNotification(
-            order._id,
-            `Order #${order.dailyOrderNumber} received. Payment will be processed manually by admin.`,
-            'pending'
-          );
+          throw new Error('Transfer failed: ' + (transferResponse.data?.message || 'Unknown error'));
         }
 
-      } catch (verificationError) {
-        console.error("Account verification error:", verificationError.message);
+      } catch (paymentError) {
+        console.error("Bank payment error:", paymentError.message);
+        console.error("Error details:", {
+          code: paymentError.code,
+          status: paymentError.response?.status,
+          statusText: paymentError.response?.statusText,
+          data: paymentError.response?.data
+        });
         
-        // Handle specific verification errors
-        if (verificationError.message.includes('Account not found')) {
+        // Handle specific payment errors
+        if (paymentError.message.includes('Account not found')) {
           order.orderStatus = 'pending';
           order.paymentError = 'Account not found. Please verify your account number.';
-        } else if (verificationError.code === 'ECONNREFUSED' || verificationError.code === 'ERR_NETWORK') {
+        } else if (paymentError.message.includes('Insufficient balance')) {
+          order.orderStatus = 'pending';
+          order.paymentError = paymentError.message;
+        } else if (paymentError.response?.status === 500) {
+          order.orderStatus = 'pending';
+          order.paymentError = 'Bank server error. Order will be processed manually.';
+        } else if (paymentError.code === 'ECONNREFUSED' || paymentError.code === 'ERR_NETWORK') {
           order.orderStatus = 'pending';
           order.paymentError = 'Bank service unavailable. Order will be processed manually.';
+        } else if (paymentError.response?.status === 400) {
+          order.orderStatus = 'pending';
+          order.paymentError = 'Invalid payment details: ' + (paymentError.response.data?.message || 'Please check your account information');
         } else {
           order.orderStatus = 'pending';
-          order.paymentError = 'Payment verification failed. Order will be processed manually.';
+          order.paymentError = 'Payment processing failed: ' + (paymentError.message || 'Unknown error');
         }
         
-        // Send notification about verification error
+        // Send notification about payment error
         sendOrderNotification(
           order._id,
-          `Order #${order.dailyOrderNumber} received. ${order.paymentError}`,
+          `Payment error for order #${order.dailyOrderNumber}: ${order.paymentError}`,
           'pending'
         );
+        
+        console.log('Payment failed, order set to pending:', order.paymentError);
       }
 
       const updatedOrder = await order.save();
       res.json(updatedOrder);
-    } else {
-      res.status(404).json({ message: 'Order not found' });
-    }
   } catch (error) {
-    console.error("Error updating order with bank details:", error); // Enhanced error logging
+    console.error("Error updating order with bank details:", error);
     res.status(500).json({ message: 'Server error while updating order.', error: error.message });
   }
 };
@@ -293,6 +268,22 @@ const updateOrderStatus = async (req, res) => {
     if (order) {
       const oldStatus = order.orderStatus;
       order.orderStatus = status;
+      
+      // If order is being marked as completed, consume ingredients
+      if (status === 'completed' && oldStatus !== 'completed') {
+        try {
+          console.log('Order completed - consuming ingredients for order:', order._id);
+          const consumptionLog = await consumeIngredients(order.items);
+          console.log('Ingredient consumption log:', consumptionLog);
+          
+          // Store consumption log in the order
+          order.ingredientConsumption = consumptionLog;
+        } catch (consumptionError) {
+          console.error('Error consuming ingredients:', consumptionError);
+          // Don't fail the order status update, but log the error
+        }
+      }
+      
       const updatedOrder = await order.save();
       
       // Send real-time notification to customer

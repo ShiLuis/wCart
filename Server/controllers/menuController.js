@@ -127,3 +127,95 @@ const deleteMenuItem = async (req, res) => {
 };
 
 module.exports = { getMenuItems, getMenuItemById, createMenuItem, updateMenuItem, deleteMenuItem };
+
+// @desc    Get menu items by category
+// @route   GET /api/menu/category/:category
+// @access  Public
+const getMenuItemsByCategory = async (req, res) => {
+  try {
+    const { category } = req.params;
+    const items = await mongoose.model('MenuItem').find({ 
+      category: category,
+      isAvailable: true 
+    }).sort({ name: 1 });
+    res.json(items);
+  } catch (error) {
+    console.error('Error fetching menu items by category:', error);
+    res.status(500).json({ message: 'Server error while fetching menu items' });
+  }
+};
+
+// @desc    Get all categories
+// @route   GET /api/menu/categories
+// @access  Public
+const getCategories = async (req, res) => {
+  try {
+    const categories = await mongoose.model('MenuItem').distinct('category');
+    res.json(categories);
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    res.status(500).json({ message: 'Server error while fetching categories' });
+  }
+};
+
+// @desc    Toggle menu item availability
+// @route   PUT /api/menu/:id/toggle-availability
+// @access  Admin
+const toggleItemAvailability = async (req, res) => {
+  try {
+    const item = await mongoose.model('MenuItem').findById(req.params.id);
+    if (!item) return res.status(404).json({ message: 'Menu item not found' });
+
+    item.isAvailable = !item.isAvailable;
+    const updatedItem = await item.save();
+    
+    res.json({
+      message: `Menu item ${updatedItem.isAvailable ? 'enabled' : 'disabled'} successfully`,
+      item: updatedItem
+    });
+  } catch (error) {
+    console.error(`Error toggling menu item availability ${req.params.id}:`, error);
+    res.status(500).json({ message: 'Server error toggling item availability' });
+  }
+};
+
+// @desc    Get menu management stats
+// @route   GET /api/menu/stats
+// @access  Admin
+const getMenuStats = async (req, res) => {
+  try {
+    const totalItems = await mongoose.model('MenuItem').countDocuments();
+    const availableItems = await mongoose.model('MenuItem').countDocuments({ isAvailable: true });
+    const unavailableItems = totalItems - availableItems;
+    
+    const categoryStats = await mongoose.model('MenuItem').aggregate([
+      { $group: { _id: '$category', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+
+    res.json({
+      totalItems,
+      availableItems,
+      unavailableItems,
+      categoryStats: categoryStats.map(cat => ({
+        category: cat._id,
+        count: cat.count
+      }))
+    });
+  } catch (error) {
+    console.error('Error fetching menu stats:', error);
+    res.status(500).json({ message: 'Server error while fetching menu stats' });
+  }
+};
+
+module.exports = { 
+  getMenuItems, 
+  getMenuItemById, 
+  createMenuItem, 
+  updateMenuItem, 
+  deleteMenuItem,
+  getMenuItemsByCategory,
+  getCategories,
+  toggleItemAvailability,
+  getMenuStats
+};

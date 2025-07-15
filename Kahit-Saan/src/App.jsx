@@ -8,7 +8,9 @@ const LandingPage = lazy(() => import("./pages/LandingPage"));
 
 // Admin Pages/Components (Lazy Loaded)
 const AdminLayout = lazy(() => import("./layouts/AdminLayout"));
+const AdminAnalyticsPage = lazy(() => import("./pages/Admin/AdminAnalyticsPage"));
 const AdminMenuManagementPage = lazy(() => import("./pages/Admin/AdminMenuManagementPage"));
+const AdminInventoryPage = lazy(() => import("./pages/Admin/AdminInventoryPage"));
 const AdminUserManagementPage = lazy(() => import("./pages/Admin/AdminUserManagementPage"));
 const AdminOrderManagementPage = lazy(() => import("./pages/Admin/AdminOrderManagementPage"));
 const AdminDailyOrdersPage = lazy(() => import("./pages/Admin/AdminDailyOrdersPage"));
@@ -52,8 +54,10 @@ function App() {
             </PrivateRoute>
           }
         >
-          <Route index element={<AdminMenuManagementPage />} /> {/* Set Menu Management as index */}
+          <Route index element={<AdminAnalyticsPage />} /> {/* Set Analytics as index */}
+          <Route path="analytics" element={<AdminAnalyticsPage />} />
           <Route path="menu" element={<AdminMenuManagementPage />} />
+          <Route path="inventory" element={<AdminInventoryPage />} />
           <Route path="users" element={<AdminUserManagementPage />} />
           <Route path="orders" element={<AdminOrderManagementPage />} />
           <Route path="daily-orders" element={<AdminDailyOrdersPage />} />

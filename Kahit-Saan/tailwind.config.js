@@ -17,6 +17,7 @@ export default {
       fontFamily: {
         'montserrat': ['Montserrat', 'sans-serif'],
         'opensans': ['Open Sans', 'sans-serif'],
+        'open-sans': ['Open Sans', 'sans-serif'],
         'kaushan': ['"Kaushan Script"', 'cursive'],
       },
     },

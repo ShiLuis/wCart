@@ -27,7 +27,9 @@ import {
     Sun,
     Moon,
     ShieldCheck,
-    Calendar
+    Calendar,
+    BarChart3,
+    Package
 } from 'lucide-react';
 
 const AdminSidebar = ({ drawerWidth, mobileOpen, handleDrawerToggle, handleThemeToggle, isDarkMode }) => {
@@ -42,10 +44,12 @@ const AdminSidebar = ({ drawerWidth, mobileOpen, handleDrawerToggle, handleTheme
     };
 
 const menuItems = [
+    { text: 'Analytics Dashboard', icon: <BarChart3 size={20} />, path: '/admin/analytics' },
     { text: 'Daily Orders', icon: <Calendar />, path: '/admin/daily-orders' },
     { text: 'Menu Management', icon: <UtensilsCrossed size={20} />, path: '/admin/menu' },
+    { text: 'Inventory Management', icon: <Package size={20} />, path: '/admin/inventory' },
     { text: 'User Management', icon: <Users size={20} />, path: '/admin/users' },
-    { text: 'Order Management', icon: <ChefHat size={20} />, path: '/admin/orders' }, // Add this line
+    { text: 'Order Management', icon: <ChefHat size={20} />, path: '/admin/orders' },
     { text: 'Password Resets', icon: <ShieldCheck />, path: '/admin/password-resets' },
 ];
 
