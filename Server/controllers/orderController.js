@@ -2,9 +2,65 @@ const mongoose = require('mongoose');
 const Order = require('../models/Order');
 const Counter = require('../models/Counter');
 const DailyCounter = require('../models/DailyCounter'); // Import DailyCounter
+const MenuItem = require('../models/MenuItem');
+const Ingredient = require('../models/Ingredient');
 const axios = require('axios');
 const { getIO } = require('../config/socket');
 const { consumeIngredients } = require('./inventoryController');
+
+// Helper function to check ingredient availability for an order
+const checkIngredientAvailability = async (orderItems) => {
+  try {
+    const unavailableItems = [];
+    const details = [];
+    
+    for (let orderItem of orderItems) {
+      const menuItem = await MenuItem.findOne({ name: orderItem.name }).populate('ingredients.ingredient');
+      
+      if (!menuItem) {
+        unavailableItems.push(orderItem.name);
+        details.push(`Menu item "${orderItem.name}" not found`);
+        continue;
+      }
+      
+      if (!menuItem.ingredients || menuItem.ingredients.length === 0) {
+        // If no ingredients defined, assume it's available (like beverages)
+        continue;
+      }
+      
+      const quantity = orderItem.quantity || orderItem.qty || 1;
+      
+      for (let recipeIngredient of menuItem.ingredients) {
+        const ingredient = recipeIngredient.ingredient;
+        
+        if (!ingredient) {
+          details.push(`Missing ingredient reference for ${orderItem.name}`);
+          continue;
+        }
+        
+        const neededAmount = recipeIngredient.quantity * quantity;
+        
+        if (ingredient.currentStock < neededAmount) {
+          unavailableItems.push(orderItem.name);
+          details.push(`${orderItem.name}: Need ${neededAmount} ${ingredient.unit} of ${ingredient.name}, only ${ingredient.currentStock} ${ingredient.unit} available`);
+        }
+      }
+    }
+    
+    return {
+      available: unavailableItems.length === 0,
+      unavailableItems: [...new Set(unavailableItems)], // Remove duplicates
+      details
+    };
+  } catch (error) {
+    console.error('Error checking ingredient availability:', error);
+    return {
+      available: false,
+      unavailableItems: [],
+      details: ['Error checking ingredient availability']
+    };
+  }
+};
 
 // Helper function to send real-time notifications
 const sendOrderNotification = (orderId, message, status) => {
@@ -58,6 +114,17 @@ const addOrderItems = async (req, res) => {
   }
 
   try {
+    // Check ingredient availability before creating order
+    const availabilityCheck = await checkIngredientAvailability(items);
+    
+    if (!availabilityCheck.available) {
+      return res.status(400).json({ 
+        message: 'Order cannot be completed due to insufficient ingredients',
+        unavailableItems: availabilityCheck.unavailableItems,
+        details: availabilityCheck.details
+      });
+    }
+
     const orderId = generateDateTimeOrderId(); // Use the new date-time based ID
     
     // Get today's date in YYYY-MM-DD format
@@ -269,10 +336,10 @@ const updateOrderStatus = async (req, res) => {
       const oldStatus = order.orderStatus;
       order.orderStatus = status;
       
-      // If order is being marked as completed, consume ingredients
-      if (status === 'completed' && oldStatus !== 'completed') {
+      // If order is being marked as preparing, consume ingredients
+      if (status === 'preparing' && oldStatus !== 'preparing') {
         try {
-          console.log('Order completed - consuming ingredients for order:', order._id);
+          console.log('Order started preparing - consuming ingredients for order:', order._id);
           const consumptionLog = await consumeIngredients(order.items);
           console.log('Ingredient consumption log:', consumptionLog);
           

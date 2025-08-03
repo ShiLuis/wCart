@@ -195,10 +195,28 @@ const consumeIngredients = async (orderItems) => {
         
         const consumeAmount = recipeIngredient.quantity * quantity;
 
-        // Update ingredient stock
+        // Check if there's enough stock before consuming
+        if (ingredient.currentStock < consumeAmount) {
+          console.log(`⚠️ Insufficient stock for ${ingredient.name}: need ${consumeAmount} ${ingredient.unit}, have ${ingredient.currentStock} ${ingredient.unit}`);
+          
+          consumptionLog.push({
+            menuItem: orderItem.name,
+            ingredient: ingredient.name,
+            consumed: 0,
+            unit: ingredient.unit,
+            remainingStock: ingredient.currentStock,
+            status: 'insufficient_stock',
+            error: `Need ${consumeAmount} ${ingredient.unit}, only ${ingredient.currentStock} ${ingredient.unit} available`
+          });
+          continue;
+        }
+
+        // Update ingredient stock (prevent negative stock by calculating new stock first)
+        const newStock = Math.max(0, ingredient.currentStock - consumeAmount);
+        
         const updatedIngredient = await Ingredient.findByIdAndUpdate(
           ingredient._id,
-          { $inc: { currentStock: -consumeAmount } },
+          { currentStock: newStock },
           { new: true }
         );
 

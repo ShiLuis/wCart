@@ -9,7 +9,7 @@ const ingredientSchema = mongoose.Schema({
   category: {
     type: String,
     required: true,
-    enum: ['meat', 'vegetable', 'sauce', 'spice', 'grain', 'dairy', 'seafood', 'beverage', 'other']
+    enum: ['meat', 'vegetable', 'sauce', 'spice', 'grain', 'dairy', 'seafood', 'beverage', 'other', 'pantry', 'protein', 'seasoning', 'oil', 'noodle']
   },
   currentStock: {
     type: Number,

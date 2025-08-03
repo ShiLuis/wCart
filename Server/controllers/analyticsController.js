@@ -169,50 +169,64 @@ const getHourlyOrderAnalytics = async (req, res) => {
 // @access  Admin
 const getInventoryAnalytics = async (req, res) => {
   try {
-    // Get basic inventory stats
-    const totalIngredients = await Ingredient.countDocuments({ isActive: true });
-    const lowStockCount = await Ingredient.countDocuments({ stockStatus: 'low_stock' });
-    const outOfStockCount = await Ingredient.countDocuments({ stockStatus: 'out_of_stock' });
-    const inStockCount = await Ingredient.countDocuments({ stockStatus: 'in_stock' });
+    // Get all active ingredients and calculate counts manually (countDocuments has issues with stockStatus)
+    const allIngredients = await Ingredient.find({ isActive: true }, 'stockStatus expiryDate currentStock costPerUnit category');
     
-    // Get expiring ingredients (within 7 days)
-    const expiringIngredients = await Ingredient.find({
-      isActive: true,
-      expiryDate: {
-        $lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        $gte: new Date()
-      }
+    const totalIngredients = allIngredients.length;
+    const lowStockCount = allIngredients.filter(ing => ing.stockStatus === 'low_stock').length;
+    const outOfStockCount = allIngredients.filter(ing => ing.stockStatus === 'out_of_stock').length;
+    const inStockCount = allIngredients.filter(ing => ing.stockStatus === 'in_stock').length;
+    
+    // Get expiring ingredients (within 7 days) from the ingredients we already fetched
+    const expiringIngredients = allIngredients.filter(ing => {
+      if (!ing.expiryDate) return false;
+      const today = new Date();
+      const expiry = new Date(ing.expiryDate);
+      const diffTime = expiry - today;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays <= 7 && diffDays > 0;
     });
 
     // Calculate total inventory value
-    const ingredients = await Ingredient.find({ isActive: true });
-    const totalValue = ingredients.reduce((sum, ingredient) => {
+    const totalValue = allIngredients.reduce((sum, ingredient) => {
       return sum + (ingredient.currentStock * ingredient.costPerUnit);
     }, 0);
 
-    // Get stock distribution by category
-    const categoryStats = await Ingredient.aggregate([
-      { $match: { isActive: true } },
-      {
-        $group: {
-          _id: '$category',
-          count: { $sum: 1 },
-          totalValue: { $sum: { $multiply: ['$currentStock', '$costPerUnit'] } },
-          lowStockItems: {
-            $sum: { $cond: [{ $eq: ['$stockStatus', 'low_stock'] }, 1, 0] }
-          },
-          outOfStockItems: {
-            $sum: { $cond: [{ $eq: ['$stockStatus', 'out_of_stock'] }, 1, 0] }
-          }
-        }
-      },
-      { $sort: { totalValue: -1 } }
-    ]);
+    // Get stock distribution by category using the ingredients we already have
+    const categoryStats = allIngredients.reduce((acc, ingredient) => {
+      const category = ingredient.category;
+      if (!acc[category]) {
+        acc[category] = {
+          _id: category,
+          count: 0,
+          totalValue: 0,
+          lowStockItems: 0,
+          outOfStockItems: 0
+        };
+      }
+      
+      acc[category].count += 1;
+      acc[category].totalValue += (ingredient.currentStock * ingredient.costPerUnit);
+      
+      if (ingredient.stockStatus === 'low_stock') {
+        acc[category].lowStockItems += 1;
+      } else if (ingredient.stockStatus === 'out_of_stock') {
+        acc[category].outOfStockItems += 1;
+      }
+      
+      return acc;
+    }, {});
+
+    // Convert to array and sort by total value
+    const categoryStatsArray = Object.values(categoryStats).sort((a, b) => b.totalValue - a.totalValue);
 
     // Get most critical ingredients (lowest stock levels)
     const criticalIngredients = await Ingredient.find({
       isActive: true,
-      stockStatus: { $in: ['low_stock', 'out_of_stock'] }
+      $or: [
+        { stockStatus: 'low_stock' },
+        { stockStatus: 'out_of_stock' }
+      ]
     })
     .sort({ currentStock: 1 })
     .limit(10)
@@ -251,7 +265,7 @@ const getInventoryAnalytics = async (req, res) => {
         totalValue: totalValue.toFixed(2),
         unavailableMenuItems: unavailableMenuItems.length
       },
-      categoryStats,
+      categoryStats: categoryStatsArray,
       criticalIngredients,
       unavailableMenuItems,
       expiringIngredients: expiringIngredients.slice(0, 5),
@@ -270,10 +284,10 @@ const getConsumptionAnalytics = async (req, res) => {
   try {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-    // Get orders with ingredient consumption logs
+    // Get orders with ingredient consumption logs (include both completed and preparing orders)
     const ordersWithConsumption = await Order.find({
       orderDate: { $gte: thirtyDaysAgo },
-      orderStatus: 'completed',
+      orderStatus: { $in: ['completed', 'preparing'] }, // Include both statuses
       ingredientConsumption: { $exists: true, $ne: [] }
     });
 
@@ -283,11 +297,16 @@ const getConsumptionAnalytics = async (req, res) => {
     ordersWithConsumption.forEach(order => {
       if (order.ingredientConsumption) {
         order.ingredientConsumption.forEach(log => {
+          // Skip malformed entries
+          if (!log.ingredient || log.ingredient === 'undefined' || log.consumed === undefined || log.consumed === null) {
+            return;
+          }
+          
           if (!consumptionByIngredient[log.ingredient]) {
             consumptionByIngredient[log.ingredient] = {
               name: log.ingredient,
               totalConsumed: 0,
-              unit: log.unit,
+              unit: log.unit || 'units',
               orderCount: 0
             };
           }

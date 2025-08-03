@@ -44,7 +44,7 @@ import {
   Schedule,
   Restaurant
 } from '@mui/icons-material';
-import axios from 'axios';
+import adminApi from '../../api/adminApi';
 
 const InventoryManagement = () => {
   const [ingredients, setIngredients] = useState([]);
@@ -78,24 +78,51 @@ const InventoryManagement = () => {
   });
 
   useEffect(() => {
-    fetchData();
+    // Ensure auth token is set
+    const token = localStorage.getItem('adminToken');
+    if (token) {
+      // Token is automatically set in adminApi instance
+      fetchData();
+    } else {
+      setError('Authentication required. Please log in.');
+      setLoading(false);
+    }
   }, []);
 
   const fetchData = async () => {
     try {
       setLoading(true);
+      setError(null);
+      
+      console.log('Fetching inventory data...');
+      
       const [ingredientsRes, dashboardRes, menuRes] = await Promise.all([
-        axios.get('/api/inventory/ingredients'),
-        axios.get('/api/inventory/dashboard'),
-        axios.get('/api/inventory/affected-menu')
+        adminApi.get('/inventory/ingredients'),
+        adminApi.get('/inventory/dashboard'),
+        adminApi.get('/inventory/affected-menu')
       ]);
       
-      setIngredients(ingredientsRes.data.ingredients);
-      setDashboard(dashboardRes.data);
-      setAffectedMenu(menuRes.data);
+      console.log('Inventory data fetched successfully:', {
+        ingredients: ingredientsRes.data,
+        dashboard: dashboardRes.data,
+        menu: menuRes.data
+      });
+      
+      setIngredients(ingredientsRes.data.ingredients || []);
+      setDashboard(dashboardRes.data || {});
+      setAffectedMenu(menuRes.data || []);
     } catch (error) {
       console.error('Error fetching inventory data:', error);
-      setError('Failed to load inventory data');
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      
+      if (error.response?.status === 401) {
+        setError('Authentication failed. Please log in again.');
+      } else if (error.response?.status === 404) {
+        setError('Inventory endpoints not found. Please check server configuration.');
+      } else {
+        setError(error.response?.data?.message || 'Failed to load inventory data');
+      }
     } finally {
       setLoading(false);
     }
@@ -103,7 +130,7 @@ const InventoryManagement = () => {
 
   const handleAddIngredient = async () => {
     try {
-      await axios.post('/api/inventory/ingredients', newIngredient);
+      await adminApi.post('/inventory/ingredients', newIngredient);
       setAddDialogOpen(false);
       setNewIngredient({
         name: '',
@@ -123,7 +150,7 @@ const InventoryManagement = () => {
 
   const handleStockUpdate = async () => {
     try {
-      await axios.put(`/api/inventory/ingredients/${selectedIngredient._id}/stock`, stockUpdate);
+      await adminApi.put(`/inventory/ingredients/${selectedIngredient._id}/stock`, stockUpdate);
       setStockDialogOpen(false);
       setStockUpdate({ action: 'add', quantity: 0, reason: '' });
       setSelectedIngredient(null);
@@ -149,6 +176,45 @@ const InventoryManagement = () => {
       case 'out_of_stock': return <Error />;
       default: return <Inventory />;
     }
+  };
+
+  // Industry standard stock level categorization
+  const getStockLevel = (currentStock, minStock, maxStock) => {
+    const percentage = (currentStock / maxStock) * 100;
+    
+    if (currentStock === 0) {
+      return { level: 'Out of Stock', color: 'error', percentage: 0 };
+    } else if (percentage <= 19) {
+      return { level: 'Critical', color: 'error', percentage };
+    } else if (percentage <= 49) {
+      return { level: 'Low Stock', color: 'warning', percentage };
+    } else if (percentage <= 79) {
+      return { level: 'Good Stock', color: 'info', percentage };
+    } else {
+      return { level: 'Full Stock', color: 'success', percentage };
+    }
+  };
+
+  const formatStockDisplay = (currentStock, unit, minStock, maxStock) => {
+    const stockInfo = getStockLevel(currentStock, minStock, maxStock);
+    
+    // Format the stock number - round to whole numbers for amounts less than 5
+    let formattedStock;
+    if (currentStock === 0) {
+      formattedStock = '0';
+    } else if (currentStock < 5) {
+      formattedStock = Math.round(currentStock).toString(); // Round to whole numbers for small amounts
+    } else {
+      formattedStock = Math.round(currentStock).toString(); // Whole numbers for all amounts
+    }
+    
+    return {
+      display: `${formattedStock} ${unit}`,
+      level: stockInfo.level,
+      color: stockInfo.color,
+      percentage: Math.round(stockInfo.percentage),
+      daysOfStock: currentStock > 0 ? Math.round(currentStock / (minStock / 7)) : 0 // Estimate days of stock
+    };
   };
 
   const StatCard = ({ title, value, icon, color = "primary", subtitle, alert = false }) => (
@@ -238,21 +304,21 @@ const InventoryManagement = () => {
           </Grid>
           <Grid item xs={12} sm={6} md={2.4}>
             <StatCard
-              title="Low Stock"
+              title="Critical Stock"
               value={dashboard.summary.lowStockCount}
               icon={<Warning />}
               color="warning"
-              subtitle="Need restocking"
+              subtitle="Requires reorder"
               alert={dashboard.summary.lowStockCount > 0}
             />
           </Grid>
           <Grid item xs={12} sm={6} md={2.4}>
             <StatCard
-              title="Out of Stock"
+              title="Stock Depletion"
               value={dashboard.summary.outOfStockCount}
               icon={<Error />}
               color="error"
-              subtitle="Unavailable"
+              subtitle="Zero inventory"
               alert={dashboard.summary.outOfStockCount > 0}
             />
           </Grid>
@@ -281,15 +347,15 @@ const InventoryManagement = () => {
       {/* Tabs */}
       <Paper sx={{ mb: 3 }}>
         <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
-          <Tab label="Ingredients" />
+          <Tab label="Inventory Catalog" />
           <Tab 
             label={
               <Badge badgeContent={affectedMenu.filter(item => item.status !== 'available').length} color="error">
-                Affected Menu
+                Production Impact
               </Badge>
             } 
           />
-          <Tab label="Critical Items" />
+          <Tab label="Stock Alerts" />
         </Tabs>
       </Paper>
 
@@ -312,8 +378,8 @@ const InventoryManagement = () => {
               <TableRow>
                 <TableCell>Name</TableCell>
                 <TableCell>Category</TableCell>
-                <TableCell>Stock Level</TableCell>
-                <TableCell>Status</TableCell>
+                <TableCell>Stock Quantity</TableCell>
+                <TableCell>Stock Status</TableCell>
                 <TableCell>Unit</TableCell>
                 <TableCell>Expiry</TableCell>
                 <TableCell>Actions</TableCell>
@@ -327,24 +393,36 @@ const InventoryManagement = () => {
                     <Chip label={ingredient.category} size="small" />
                   </TableCell>
                   <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Typography variant="body2" sx={{ mr: 1 }}>
-                        {ingredient.currentStock}
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                      <Typography variant="body2" fontWeight="medium">
+                        {formatStockDisplay(ingredient.currentStock, ingredient.unit, ingredient.minStockLevel, ingredient.maxStockLevel).display}
                       </Typography>
-                      <LinearProgress
-                        variant="determinate"
-                        value={Math.min((ingredient.currentStock / ingredient.maxStockLevel) * 100, 100)}
-                        sx={{ 
-                          width: 60, 
-                          mr: 1,
-                          '& .MuiLinearProgress-bar': {
-                            backgroundColor: ingredient.stockStatus === 'out_of_stock' ? 'error.main' :
-                                           ingredient.stockStatus === 'low_stock' ? 'warning.main' : 'success.main'
-                          }
-                        }}
-                      />
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <LinearProgress
+                          variant="determinate"
+                          value={Math.min((ingredient.currentStock / ingredient.maxStockLevel) * 100, 100)}
+                          sx={{ 
+                            width: 80, 
+                            height: 6,
+                            borderRadius: 3,
+                            '& .MuiLinearProgress-bar': {
+                              backgroundColor: 
+                                formatStockDisplay(ingredient.currentStock, ingredient.unit, ingredient.minStockLevel, ingredient.maxStockLevel).color === 'error' ? 'error.main' :
+                                formatStockDisplay(ingredient.currentStock, ingredient.unit, ingredient.minStockLevel, ingredient.maxStockLevel).color === 'warning' ? 'warning.main' :
+                                formatStockDisplay(ingredient.currentStock, ingredient.unit, ingredient.minStockLevel, ingredient.maxStockLevel).color === 'info' ? 'info.main' : 'success.main'
+                            }
+                          }}
+                        />
+                        <Chip
+                          label={formatStockDisplay(ingredient.currentStock, ingredient.unit, ingredient.minStockLevel, ingredient.maxStockLevel).level}
+                          color={formatStockDisplay(ingredient.currentStock, ingredient.unit, ingredient.minStockLevel, ingredient.maxStockLevel).color}
+                          size="small"
+                          variant="outlined"
+                        />
+                      </Box>
                       <Typography variant="caption" color="text.secondary">
-                        {Math.min(Math.round((ingredient.currentStock / ingredient.maxStockLevel) * 100), 100)}%
+                        {formatStockDisplay(ingredient.currentStock, ingredient.unit, ingredient.minStockLevel, ingredient.maxStockLevel).percentage}% capacity | 
+                        Min: {ingredient.minStockLevel} {ingredient.unit}
                       </Typography>
                     </Box>
                   </TableCell>
@@ -400,7 +478,7 @@ const InventoryManagement = () => {
       {/* Affected Menu Tab */}
       <TabPanel value={tabValue} index={1}>
         <Typography variant="h6" gutterBottom>
-          Menu Items Affected by Stock Levels
+          Production Availability Status
         </Typography>
         <Grid container spacing={2}>
           {affectedMenu.map((item, index) => (
@@ -430,7 +508,7 @@ const InventoryManagement = () => {
                   {item.unavailableIngredients.length > 0 && (
                     <Box sx={{ mb: 1 }}>
                       <Typography variant="caption" color="error">
-                        Out of stock: {item.unavailableIngredients.join(', ')}
+                        Depleted inventory: {item.unavailableIngredients.join(', ')}
                       </Typography>
                     </Box>
                   )}
@@ -438,7 +516,7 @@ const InventoryManagement = () => {
                   {item.lowStockWarnings.length > 0 && (
                     <Box>
                       <Typography variant="caption" color="warning.main">
-                        Low stock: {item.lowStockWarnings.join(', ')}
+                        Critical levels: {item.lowStockWarnings.join(', ')}
                       </Typography>
                     </Box>
                   )}
@@ -552,19 +630,21 @@ const InventoryManagement = () => {
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Minimum Stock Level"
+                label="Reorder Point (ROL)"
                 type="number"
                 value={newIngredient.minStockLevel}
                 onChange={(e) => setNewIngredient({ ...newIngredient, minStockLevel: parseFloat(e.target.value) || 0 })}
+                helperText="Minimum quantity before reordering"
               />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Maximum Stock Level"
+                label="Maximum Capacity"
                 type="number"
                 value={newIngredient.maxStockLevel}
                 onChange={(e) => setNewIngredient({ ...newIngredient, maxStockLevel: parseFloat(e.target.value) || 0 })}
+                helperText="Storage capacity limit"
               />
             </Grid>
             <Grid item xs={12} sm={6}>

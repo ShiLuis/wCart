@@ -29,7 +29,7 @@ import {
   Timeline,
   Category
 } from '@mui/icons-material';
-import axios from 'axios';
+import adminApi from '../../api/adminApi';
 
 const AnalyticsDashboard = () => {
   const [analyticsData, setAnalyticsData] = useState(null);
@@ -46,20 +46,46 @@ const AnalyticsDashboard = () => {
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
+      setError(null);
       const [salesResponse, statusResponse, inventoryResponse, consumptionResponse] = await Promise.all([
-        axios.get('/api/analytics/sales'),
-        axios.get('/api/analytics/order-status'),
-        axios.get('/api/analytics/inventory'),
-        axios.get('/api/analytics/consumption')
+        adminApi.get('/analytics/sales'),
+        adminApi.get('/analytics/order-status'),
+        adminApi.get('/analytics/inventory'),
+        adminApi.get('/analytics/consumption')
       ]);
       
-      setAnalyticsData(salesResponse.data);
-      setOrderStatusData(statusResponse.data);
-      setInventoryData(inventoryResponse.data);
-      setConsumptionData(consumptionResponse.data);
+      // Ensure data integrity with fallbacks
+      setAnalyticsData({
+        ...salesResponse.data,
+        dailyRevenue: salesResponse.data?.dailyRevenue || [],
+        popularItems: salesResponse.data?.popularItems || [],
+        averageOrderValue: salesResponse.data?.averageOrderValue || 0
+      });
+      
+      setOrderStatusData(statusResponse.data || {});
+      setInventoryData({
+        ...inventoryResponse.data,
+        criticalIngredients: inventoryResponse.data?.criticalIngredients || []
+      });
+      
+      setConsumptionData({
+        ...consumptionResponse.data,
+        topConsumedIngredients: (consumptionResponse.data?.topConsumedIngredients || []).map(ingredient => ({
+          ...ingredient,
+          name: ingredient.name || 'Unknown',
+          totalConsumed: ingredient.totalConsumed || 0,
+          unit: ingredient.unit || ''
+        }))
+      });
     } catch (error) {
       console.error('Error fetching analytics:', error);
-      setError('Failed to load analytics data');
+      setError(`Failed to load analytics data: ${error.response?.data?.message || error.message}`);
+      
+      // Set default empty states to prevent render errors
+      setAnalyticsData({ dailyRevenue: [], popularItems: [], averageOrderValue: 0 });
+      setOrderStatusData({});
+      setInventoryData({ criticalIngredients: [] });
+      setConsumptionData({ topConsumedIngredients: [] });
     } finally {
       setLoading(false);
     }
@@ -228,10 +254,11 @@ const AnalyticsDashboard = () => {
                           {/* Line path */}
                           <path
                             d={(() => {
-                              const maxRevenue = Math.max(...analyticsData.dailyRevenue.map(d => d.revenue));
+                              const revenues = analyticsData.dailyRevenue.map(d => d.revenue || 0);
+                              const maxRevenue = revenues.length > 0 ? Math.max(...revenues) : 1;
                               const points = analyticsData.dailyRevenue.map((day, index) => {
                                 const x = (index / (analyticsData.dailyRevenue.length - 1)) * 380 + 10;
-                                const y = maxRevenue > 0 ? 140 - ((day.revenue / maxRevenue) * 120) : 140;
+                                const y = maxRevenue > 0 ? 140 - (((day.revenue || 0) / maxRevenue) * 120) : 140;
                                 return `${x},${y}`;
                               });
                               return `M ${points.join(' L ')}`;
@@ -245,9 +272,10 @@ const AnalyticsDashboard = () => {
                           
                           {/* Data points */}
                           {analyticsData.dailyRevenue.map((day, index) => {
-                            const maxRevenue = Math.max(...analyticsData.dailyRevenue.map(d => d.revenue));
+                            const revenues = analyticsData.dailyRevenue.map(d => d.revenue || 0);
+                            const maxRevenue = revenues.length > 0 ? Math.max(...revenues) : 1;
                             const x = (index / (analyticsData.dailyRevenue.length - 1)) * 380 + 10;
-                            const y = maxRevenue > 0 ? 140 - ((day.revenue / maxRevenue) * 120) : 140;
+                            const y = maxRevenue > 0 ? 140 - (((day.revenue || 0) / maxRevenue) * 120) : 140;
                             
                             return (
                               <g key={index}>
@@ -271,16 +299,16 @@ const AnalyticsDashboard = () => {
                           mt: 1,
                           px: 1
                         }}>
-                          {analyticsData.dailyRevenue.map((day, index) => (
+                          {analyticsData?.dailyRevenue?.map((day, index) => (
                             <Box key={index} sx={{ textAlign: 'center', flex: 1 }}>
                               <Typography variant="caption" sx={{ display: 'block', lineHeight: 1 }}>
-                                {new Date(day.date).getDate()}/{new Date(day.date).getMonth() + 1}
+                                {day.date ? `${new Date(day.date).getDate()}/${new Date(day.date).getMonth() + 1}` : 'N/A'}
                               </Typography>
                               <Typography variant="caption" color="primary" fontWeight="bold">
-                                ₱{day.revenue}
+                                ₱{day.revenue || 0}
                               </Typography>
                             </Box>
-                          ))}
+                          )) || []}
                         </Box>
                       </Box>
                     ) : (
@@ -304,11 +332,11 @@ const AnalyticsDashboard = () => {
                     {analyticsData?.popularItems?.slice(0, 5).map((item, index) => (
                       <ListItem key={index} divider>
                         <ListItemText
-                          primary={item.name}
-                          secondary={`₱${item.price} • ${item.quantity} orders`}
+                          primary={item.name || 'Unknown item'}
+                          secondary={`₱${item.price || 0} • ${item.quantity || 0} orders`}
                         />
                         <Chip
-                          label={`₱${item.revenue?.toLocaleString()}`}
+                          label={`₱${(item.revenue || 0).toLocaleString()}`}
                           color="primary"
                           size="small"
                         />
@@ -416,17 +444,21 @@ const AnalyticsDashboard = () => {
                 </Typography>
                 <List dense>
                   {consumptionData?.topConsumedIngredients?.slice(0, 5).map((ingredient, index) => {
-                    const maxConsumption = Math.max(...consumptionData.topConsumedIngredients.map(i => i.totalConsumed));
-                    const percentage = (ingredient.totalConsumed / maxConsumption) * 100;
+                    const validConsumptions = consumptionData.topConsumedIngredients
+                      .map(i => i.totalConsumed || 0)
+                      .filter(val => val > 0);
+                    const maxConsumption = validConsumptions.length > 0 ? Math.max(...validConsumptions) : 1;
+                    const consumedAmount = ingredient.totalConsumed || 0;
+                    const percentage = maxConsumption > 0 ? (consumedAmount / maxConsumption) * 100 : 0;
                     
                     return (
                       <ListItem key={index} divider sx={{ px: 0, flexDirection: 'column', alignItems: 'stretch' }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', mb: 1 }}>
                           <Typography variant="body2" fontWeight="medium">
-                            {ingredient.name}
+                            {ingredient.name || 'Unknown ingredient'}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            {ingredient.totalConsumed.toFixed(1)} {ingredient.unit}
+                            {consumedAmount.toFixed(1)} {ingredient.unit || ''}
                           </Typography>
                         </Box>
                         <LinearProgress
