@@ -66,7 +66,22 @@ function App() {
         </Route>
 
         {/* Optional: 404 Not Found Page */}
-        {/* <Route path="*" element={<NotFoundPage />} /> */}
+        <Route path="*" element={
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            height: '100vh',
+            textAlign: 'center'
+          }}>
+            <h1>404 - Page Not Found</h1>
+            <p>The page you're looking for doesn't exist.</p>
+            <a href="/" style={{ color: '#1976d2', textDecoration: 'none' }}>
+              Go back to home
+            </a>
+          </Box>
+        } />
       </Routes>
     </Suspense>
   );

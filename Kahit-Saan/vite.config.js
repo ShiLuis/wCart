@@ -6,11 +6,24 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: true,
+    historyApiFallback: true,
     proxy: {
       '/api': {
         target: 'http://localhost:5000',
         changeOrigin: true,
       },
+    }
+  },
+  preview: {
+    port: 4173,
+    host: '0.0.0.0'
+  },
+  build: {
+    outDir: 'dist',
+    rollupOptions: {
+      input: {
+        main: './index.html'
+      }
     }
   }
 })

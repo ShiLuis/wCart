@@ -1,6 +1,17 @@
 import axios from 'axios';
 
-const rawApiUrl = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:5000`;
+// Environment-based API URL with fallbacks
+const getApiUrl = () => {
+  // Production check
+  if (import.meta.env.PROD) {
+    return import.meta.env.VITE_API_BASE_URL || 'https://kahit-saan-backend.onrender.com';
+  }
+  
+  // Development fallback
+  return import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:5000`;
+};
+
+const rawApiUrl = getApiUrl();
 
 // Clean up the URL to ensure it doesn't have a trailing slash or /api
 const cleanedApiUrl = rawApiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
@@ -8,6 +19,8 @@ const cleanedApiUrl = rawApiUrl.replace(/\/api\/?$/, '').replace(/\/$/, '');
 // Axios instance for admin APIs
 const adminApi = axios.create({
   baseURL: `${cleanedApiUrl}/api`, // Now it's safe to append /api
+  timeout: 30000, // 30 seconds timeout for Render cold starts
+  withCredentials: false // Set to false for CORS simplicity
 });
 
 // Ensure axios sends the token with requests

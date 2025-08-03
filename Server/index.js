@@ -34,7 +34,9 @@ const server = http.createServer(app);
 const allowedOrigins = [
   'http://localhost:3000', // Your local frontend
   'http://localhost:5173',
-  'https://kahit-saan-client.onrender.com' // Your deployed frontend
+  'https://kahit-saan-client.onrender.com', // Your deployed frontend
+  'https://kahit-saan-frontend.onrender.com', // Alternative frontend URL
+  /\.onrender\.com$/ // Allow any onrender.com subdomain
 ];
 
 const corsOptions = {
@@ -42,17 +44,27 @@ const corsOptions = {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
 
-    // Allow all origins from the local network and configured allowed origins
-    const isAllowed = allowedOrigins.includes(origin) || /^(http:\/\/192\.168\.|http:\/\/localhost:)/.test(origin);
+    // Check if origin matches any allowed origins (including regex patterns)
+    const isAllowed = allowedOrigins.some(allowedOrigin => {
+      if (typeof allowedOrigin === 'string') {
+        return allowedOrigin === origin;
+      } else if (allowedOrigin instanceof RegExp) {
+        return allowedOrigin.test(origin);
+      }
+      return false;
+    }) || /^(http:\/\/192\.168\.|http:\/\/localhost:)/.test(origin);
 
     if (isAllowed) {
       callback(null, true);
     } else {
+      console.log('CORS blocked origin:', origin);
       const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
       callback(new Error(msg), false);
     }
   },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 };
 
 // Use the same CORS options for both Express and Socket.IO
@@ -131,8 +143,22 @@ io.on('connection', (socket) => {
 // Set the io instance for use in other files
 setIO(io);
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    service: 'Kahit Saan Backend',
+    timestamp: new Date().toISOString(),
+    port: PORT 
+  });
+});
+
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Kahit Saan Server running on port ${PORT}`);
+  console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`📊 Health check: http://localhost:${PORT}/health`);
+});
 
 // Export io for use in other files
 module.exports = { io };
